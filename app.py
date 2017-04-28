@@ -110,9 +110,7 @@ def main():
 
 if __name__ == "__main__":
     print(sys.argv)
-    if not config.is_lock_free():
-        pass
-    elif len(sys.argv) == 1:
+    if len(sys.argv) == 1:
         main()
     elif sys.argv[1] == "cursor":
         db_make_cursor(dir="/Camera Uploads")
