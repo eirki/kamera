@@ -89,10 +89,10 @@ def execute_upload_copy(move_func, dest, dbx):
 def process_entry(entry, dbx, kamera_folder=config.kamera_db_folder):
     print(f"Processing: {entry.name}")
     if entry.name.lower().endswith((".mp4", ".gif")):
+        date = image_processing.parse_date(entry)
         if entry.name.lower().endswith(".mp4"):
-            dest = "/".join([kamera_folder, "Video", entry.name])
+            dest = "/".join([kamera_folder, "Video", str(date.year), entry.name])
         elif entry.name.lower().endswith(".gif"):
-            date = image_processing.parse_date(entry)
             dest = "/".join([kamera_folder, str(date.year), folder_names[date.month], entry.name])
         move_func = partial(dbx.files_copy, from_path=entry.path_lower, to_path=dest)
         execute_upload_copy(move_func, dest, dbx)
