@@ -30,7 +30,7 @@ folder_names = {
 media_extensions = (".jpg", ".jpeg", ".png", ".mp4", ".gif")
 
 
-def db_make_cursor(dir):
+def db_make_cursor(in_dir):
     dbx = dropbox.Dropbox(config.DBX_TOKEN)
     dbx.users_get_current_account()
     result = dbx.files_list_folder(dir, include_media_info=True)
@@ -38,17 +38,15 @@ def db_make_cursor(dir):
         txt.write(result.cursor)
 
 
-def process_dir(from_dir, to_dir):
-    dbx = dropbox.Dropbox(config.DBX_TOKEN)
-    dbx.users_get_current_account()
-    result = dbx.files_list_folder(from_dir, include_media_info=True)
+def db_list_media_in_dir(dbx, in_dir):
+    result = dbx.files_list_folder(in_dir, include_media_info=True)
     for entry in result.entries:
         if (entry.path_lower.endswith(media_extensions) and
                 isinstance(entry, dropbox.files.FileMetadata)):
-            process_entry(entry, dbx, to_dir)
+            yield entry
 
 
-def db_get_new_media(dbx):
+def db_list_new_media(dbx):
     has_more = True
     with open(path.join(config.home, "cursor")) as txt:
         cursor = txt.read()
@@ -71,51 +69,60 @@ def db_get_new_media(dbx):
         txt.write(cursor)
 
 
-def execute_upload_copy(move_func, dest, dbx):
-    try:
-        dest = move_func.keywords["path"]
-    except KeyError:
-        dest = move_func.keywords["to_path"]
+def execute_transfer(dbx, out_dir, func, data, relative_dest):
+    absolute_dest = "/".join([out_dir, relative_dest])
+
+    if func == dbx.files_upload:
+        transfer_func = partial(dbx.files_upload, f=data, path=absolute_dest)
+    elif func == dbx.files_copy:
+        transfer_func = partial(dbx.files_copy, from_path=data, to_path=absolute_dest)
 
     try:
-        print(f"Uploading/copying to dest: {dest}")
-        move_func()
+        print(f"Uploading/copying to dest: {absolute_dest}")
+        transfer_func()
     except dropbox.exceptions.BadInputError:
-        print(f"Making folder: {dest}")
-        dbx.files_create_folder(dest)
-        move_func()
+        print(f"Making folder: {absolute_dest}")
+        dbx.files_create_folder(absolute_dest)
+        transfer_func()
 
 
-def process_entry(entry, dbx, kamera_folder=config.kamera_db_folder):
-    print(f"Processing: {entry.name}")
-    if entry.name.lower().endswith((".mp4", ".gif")):
-        date = image_processing.parse_date(entry)
-        if entry.name.lower().endswith(".mp4"):
-            dest = "/".join([kamera_folder, "Video", str(date.year), entry.name])
-        elif entry.name.lower().endswith(".gif"):
-            dest = "/".join([kamera_folder, str(date.year), folder_names[date.month], entry.name])
-        move_func = partial(dbx.files_copy, from_path=entry.path_lower, to_path=dest)
-        execute_upload_copy(move_func, dest, dbx)
-        return
+def process_non_image(dbx, entry):
+    date = image_processing.parse_date(entry)
+    if entry.name.lower().endswith(".mp4"):
+        relative_dest = "/".join(["Video", str(date.year), entry.name])
+    elif entry.name.lower().endswith(".gif"):
+        relative_dest = "/".join([str(date.year), folder_names[date.month], entry.name])
+    transfer_info = (dbx.files_copy, entry.path_lower, relative_dest)
+    return transfer_info
 
-    db_metadata = entry.media_info.get_metadata() if entry.media_info else None
+
+def process_image(dbx, entry):
     filedata, response = dbx.files_download(entry.path_lower)
-    new_data, date = image_processing.main(entry, db_metadata, response.raw.data)
+    new_data, date = image_processing.main(entry, response.raw.data)
     filename, ext = os.path.splitext(entry.name)
-    dest = "/".join([kamera_folder, str(date.year), folder_names[date.month], filename + ".jpg"])
+    relative_dest = "/".join([str(date.year), folder_names[date.month], filename + ".jpg"])
 
     if new_data:
-        move_func = partial(dbx.files_upload, f=new_data, path=dest)
+        transfer_info = (dbx.files_upload, new_data, relative_dest)
     else:
-        move_func = partial(dbx.files_copy, from_path=entry.path_lower, to_path=dest)
-    execute_upload_copy(move_func, dest, dbx)
+        transfer_info = (dbx.files_copy, entry.path_lower, relative_dest)
+    return transfer_info
 
 
-def main():
+def main(use_cursor=True, out_dir=config.kamera_db_folder, in_dir=None):
     dbx = dropbox.Dropbox(config.DBX_TOKEN)
     dbx.users_get_current_account()
-    for entry in db_get_new_media(dbx):
-        process_entry(entry, dbx)
+    if use_cursor:
+        entries = db_list_new_media(dbx)
+    else:
+        entries = db_list_media_in_dir(dbx, in_dir)
+    for entry in entries:
+        print(f"Processing: {entry.name}")
+        if entry.name.lower().endswith((".mp4", ".gif")):
+            transfer_info = process_non_image(dbx, entry)
+        else:
+            transfer_info = process_image(dbx, entry)
+        execute_transfer(dbx, out_dir, *transfer_info)
 
 
 if __name__ == "__main__":
@@ -125,4 +132,4 @@ if __name__ == "__main__":
     elif sys.argv[1] == "cursor":
         db_make_cursor(dir="/Camera Uploads")
     elif sys.argv[1] == "process_dir":
-        process_dir(from_dir=sys.argv[2], to_dir=sys.argv[3])
+        main(in_dir=sys.argv[2], out_dir=sys.argv[3], use_cursor=False)

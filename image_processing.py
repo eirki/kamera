@@ -39,7 +39,7 @@ def get_geo_tag(lat, lng):
     return tagstring
 
 
-def parse_date(entry, db_metadata):
+def parse_date(entry, db_metadata=None):
     if "burst" in entry.name.lower():
         naive_date = dt.datetime.strptime(entry.name[20:34], "%Y%m%d%H%M%S")
     else:
@@ -47,14 +47,19 @@ def parse_date(entry, db_metadata):
             naive_date = dt.datetime.strptime(entry.name[:19], "%Y-%m-%d %H.%M.%S")
         except ValueError:
             naive_date = entry.client_modified
-    utc_date = naive_date.replace(tzinfo=dt.timezone.utc)
-    tz = TimezoneFinder().timezone_at(lat=db_metadata.location.latitude,
-                                      lng=db_metadata.location.longitude)
-    local_date = utc_date.replace(tzinfo=dt.timezone.utc).astimezone(tz=pytz.timezone(tz))
-    return local_date
+    if entry.name.lower().endswith((".mp4", ".gif")):
+        return naive_date
+    else:
+        utc_date = naive_date.replace(tzinfo=dt.timezone.utc)
+        tz = TimezoneFinder().timezone_at(lat=db_metadata.location.latitude,
+                                          lng=db_metadata.location.longitude)
+        local_date = utc_date.replace(tzinfo=dt.timezone.utc).astimezone(tz=pytz.timezone(tz))
+        return local_date
 
 
-def main(entry, db_metadata, data):
+def main(entry, data):
+    db_metadata = entry.media_info.get_metadata() if entry.media_info else None
+
     new_data = None
     if entry.path_lower.endswith("png"):
         print(f"Converting to PNG: {entry.name}")
@@ -83,7 +88,7 @@ def main(entry, db_metadata, data):
             metadata["0th"][piexif.ImageIFD.XPKeywords] = tagstring.encode("utf-16")
 
     if not (new_data, tagstring, datestring):
-        return None, None
+        return None, date
 
     metadata_bytes = piexif.dump(metadata)
     new_file = BytesIO()
