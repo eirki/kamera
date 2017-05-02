@@ -4,7 +4,9 @@
 from io import BytesIO
 import subprocess
 import datetime as dt
+import pytz
 
+from timezonefinderL import TimezoneFinder
 from PIL import Image
 import piexif
 from geopy.distance import great_circle
@@ -37,13 +39,19 @@ def get_geo_tag(lat, lng):
     return tagstring
 
 
-def parse_date(entry):
+def parse_date(entry, db_metadata):
     if "burst" in entry.name.lower():
-        return dt.datetime.strptime(entry.name[20:34], "%Y%m%d%H%M%S")
-    try:
-        return dt.datetime.strptime(entry.name[:19], "%Y-%m-%d %H.%M.%S")
-    except ValueError:
-        return entry.client_modified
+        naive_date = dt.datetime.strptime(entry.name[20:34], "%Y%m%d%H%M%S")
+    else:
+        try:
+            naive_date = dt.datetime.strptime(entry.name[:19], "%Y-%m-%d %H.%M.%S")
+        except ValueError:
+            naive_date = entry.client_modified
+    utc_date = naive_date.replace(tzinfo=dt.timezone.utc)
+    tz = TimezoneFinder().timezone_at(lat=db_metadata.location.latitude,
+                                      lng=db_metadata.location.longitude)
+    local_date = utc_date.replace(tzinfo=dt.timezone.utc).astimezone(tz=pytz.timezone(tz))
+    return local_date
 
 
 def main(entry, db_metadata, data):
@@ -58,10 +66,10 @@ def main(entry, db_metadata, data):
 
     datestring = None
     try:
-        datestr = metadata["Exif"][piexif.ExifIFD.DateTimeOriginal].decode()
-        date = dt.datetime.strptime(datestr, "%Y:%m:%d %H:%M:%S")
+        orig_datestring = metadata["Exif"][piexif.ExifIFD.DateTimeOriginal].decode()
+        date = dt.datetime.strptime(orig_datestring, "%Y:%m:%d %H:%M:%S")
     except KeyError:
-        date = parse_date(entry)
+        date = parse_date(entry, db_metadata)
         datestring = date.strftime("%Y:%m:%d %H:%M:%S")
         print(f"Inserting date to {entry.name}: {datestring}")
         metadata["Exif"][piexif.ExifIFD.DateTimeOriginal] = datestring
@@ -75,7 +83,7 @@ def main(entry, db_metadata, data):
             metadata["0th"][piexif.ImageIFD.XPKeywords] = tagstring.encode("utf-16")
 
     if not (new_data, tagstring, datestring):
-        return None, None, None
+        return None, None
 
     metadata_bytes = piexif.dump(metadata)
     new_file = BytesIO()
