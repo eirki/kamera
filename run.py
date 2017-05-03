@@ -17,7 +17,7 @@ def is_lock_free():
     lock_socket = socket.socket(socket.AF_UNIX, socket.SOCK_DGRAM)
     try:
         lock_id = config.app_id
-        lock_socket.bind("\0{lock_id}")
+        lock_socket.bind(f"\0{lock_id}")
         print(f"Acquired lock {lock_id}")
         return True
     except socket.error:
