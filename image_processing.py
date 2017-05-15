@@ -47,7 +47,7 @@ def parse_date(entry, db_metadata=None):
             naive_date = dt.datetime.strptime(entry.name[:19], "%Y-%m-%d %H.%M.%S")
         except ValueError:
             naive_date = entry.client_modified
-    if entry.name.lower().endswith((".mp4", ".gif")):
+    if entry.name.lower().endswith((".mp4", ".gif", ".png")):
         return naive_date
     else:
         utc_date = naive_date.replace(tzinfo=dt.timezone.utc)
