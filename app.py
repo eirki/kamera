@@ -5,6 +5,7 @@ import sys
 from os import path
 from functools import partial
 import os
+from pprint import pprint
 
 import dropbox
 
@@ -53,7 +54,7 @@ def db_list_new_media(dbx):
 
     while has_more:
         result = dbx.files_list_folder_continue(cursor)
-        print(result)
+        pprint(result)
         for entry in result.entries:
             if (entry.path_lower.endswith(media_extensions) and
                     isinstance(entry, dropbox.files.FileMetadata)):
