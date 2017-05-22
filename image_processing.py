@@ -47,14 +47,15 @@ def parse_date(entry, db_metadata=None):
             naive_date = dt.datetime.strptime(entry.name[:19], "%Y-%m-%d %H.%M.%S")
         except ValueError:
             naive_date = entry.client_modified
-    if entry.name.lower().endswith((".mp4", ".gif", ".png")):
-        return naive_date
-    else:
+
+    try:
         utc_date = naive_date.replace(tzinfo=dt.timezone.utc)
         tz = TimezoneFinder().timezone_at(lat=db_metadata.location.latitude,
                                           lng=db_metadata.location.longitude)
         local_date = utc_date.replace(tzinfo=dt.timezone.utc).astimezone(tz=pytz.timezone(tz))
         return local_date
+    except AttributeError:
+        return naive_date
 
 
 def main(entry, data):
