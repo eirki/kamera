@@ -77,8 +77,15 @@ def execute_transfer(dbx, out_dir, func, data, relative_dest):
         dbx.files_create_folder(absolute_dest)
         transfer_func()
     except dropbox.exceptions.ApiError as Exception:
-        if isinstance(Exception.error.get_to().get_conflict(), dropbox.files.WriteConflictError):
-            print(f"Skipping transfer, file already present: {absolute_dest}")
+            if (isinstance(Exception.error, dropbox.files.RelocationError) and
+               isinstance(Exception.error.get_to().get_conflict(), dropbox.files.WriteConflictError)):
+                print(f"Skipping copy, file already present: {absolute_dest}")
+
+            elif (isinstance(Exception.error, dropbox.files.UploadError) and
+                  isinstance(Exception.error.get_path().reason.get_conflict(), dropbox.files.WriteConflictError)):
+                print(f"Skipping move, file already present: {absolute_dest}")
+            else:
+                raise
 
 
 def get_backup_info(dbx, entry, db_metadata):
@@ -131,6 +138,7 @@ def main(in_dir=config.uploads_db_folder, out_dir=config.kamera_db_folder, backu
         else:
             transfer_info = process_image(dbx, entry, db_metadata)
         execute_transfer(dbx, out_dir, **transfer_info)
+        print()
 
 
 if __name__ == "__main__":
