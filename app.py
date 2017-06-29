@@ -127,6 +127,7 @@ def main(use_cursor=True, out_dir=config.kamera_db_folder, in_dir=None, backup=T
         entries = db_list_media_in_dir(dbx, in_dir)
     for entry in entries:
         if backup:
+        entry.media_info.db_metadata = entry.media_info.get_metadata() if entry.media_info else None
             print(f"Copying to bakcup: {entry.name}")
             backup_info = get_backup_info(dbx, entry)
             execute_transfer(dbx, **backup_info)
