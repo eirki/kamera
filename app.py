@@ -76,6 +76,9 @@ def execute_transfer(dbx, out_dir, func, data, relative_dest):
         print(f"Making folder: {absolute_dest}")
         dbx.files_create_folder(absolute_dest)
         transfer_func()
+    except dropbox.exceptions.ApiError as Exception:
+        if isinstance(Exception.error.get_to().get_conflict(), dropbox.files.WriteConflictError):
+            print(f"Skipping transfer, file already present: {absolute_dest}")
 
 
 def get_backup_info(dbx, entry):
