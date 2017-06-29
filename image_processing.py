@@ -58,38 +58,62 @@ def parse_date(entry, db_metadata):
         return naive_date
 
 
-    new_data = None
+def convert_png_to_jpg(entry, data):
+    print(f"Converting to PNG: {entry.name}")
+    old_data = BytesIO(data)
+    new_data = BytesIO()
+    Image.open(old_data).save(new_data, "JPEG")
+    data = new_data.getvalue()
+    return data
+
+
+def add_date(entry, date, metadata):
+    datestring = date.strftime("%Y:%m:%d %H:%M:%S")
+    print(f"Inserting date to {entry.name}: {datestring}")
+    metadata["Exif"][piexif.ExifIFD.DateTimeOriginal] = datestring
+    return date
+
+
+def add_tag(entry, metadata, tagstring):
+    print(f"Tagging {entry.name}: {tagstring}")
+    metadata["0th"][piexif.ImageIFD.XPKeywords] = tagstring.encode("utf-16")
+
+
 def main(entry, data, db_metadata):
+    data_changed = None
+
+    # Convert image from PNG to JPG, put data into BytesIO obj
     if entry.path_lower.endswith("png"):
-        print(f"Converting to PNG: {entry.name}")
-        new_data = BytesIO()
-        Image.open(BytesIO(data)).save(new_data, "JPEG")
-        data = new_data.getvalue()
+        data = convert_png_to_jpg(entry, data)
+        data_changed = True
 
-    metadata = piexif.load(data)
+    # Make metadata object from image data
+    exif_metadata = piexif.load(data)
 
-    datestring = None
+    # Parse image date. Add date to metadata object if missing
     try:
-        orig_datestring = metadata["Exif"][piexif.ExifIFD.DateTimeOriginal].decode()
+        orig_datestring = exif_metadata["Exif"][piexif.ExifIFD.DateTimeOriginal].decode()
         date = dt.datetime.strptime(orig_datestring, "%Y:%m:%d %H:%M:%S")
     except KeyError:
-        datestring = date.strftime("%Y:%m:%d %H:%M:%S")
-        print(f"Inserting date to {entry.name}: {datestring}")
-        metadata["Exif"][piexif.ExifIFD.DateTimeOriginal] = datestring
         date = parse_date(entry, db_metadata)
+        add_date(entry, date, exif_metadata)
+        data_changed = True
 
+    # Get image tag. Add tag to metadata object if present
     tagstring = None
     if db_metadata and db_metadata.location:
         tagstring = get_geo_tag(lat=db_metadata.location.latitude,
                                 lng=db_metadata.location.longitude)
         if tagstring:
-            print(f"Tagging {entry.name}: {tagstring}")
-            metadata["0th"][piexif.ImageIFD.XPKeywords] = tagstring.encode("utf-16")
+            add_tag(entry, exif_metadata, tagstring)
+            data_changed = True
 
-    if not (new_data, tagstring, datestring):
+    # If no convertion, date fixing, or tagging, return only the parsed image date
+    if not data_changed:
         return None, date
 
-    metadata_bytes = piexif.dump(metadata)
+    # Add metadata from metadata object to image data, run through exiftool if tagged
+    metadata_bytes = piexif.dump(exif_metadata)
     new_file = BytesIO()
     piexif.insert(metadata_bytes, data, new_file)
     new_data = new_file.getvalue()
