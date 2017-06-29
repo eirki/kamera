@@ -87,6 +87,14 @@ def execute_transfer(dbx, out_dir, func, data, relative_dest):
         transfer_func()
 
 
+def get_backup_info(dbx, entry):
+    date = image_processing.parse_date(entry)
+    relative_dest = "/".join([str(date.year), folder_names[date.month], entry.name])
+    backup_info = {"func": dbx.files_copy, "data": entry.path_lower,
+                   "relative_dest": relative_dest, "out_dir": config.backup_db_folder}
+    return backup_info
+
+
 def process_non_image(dbx, entry):
     date = image_processing.parse_date(entry)
     if entry.name.lower().endswith(".mp4"):
@@ -110,7 +118,7 @@ def process_image(dbx, entry):
     return transfer_info
 
 
-def main(use_cursor=True, out_dir=config.kamera_db_folder, in_dir=None):
+def main(use_cursor=True, out_dir=config.kamera_db_folder, in_dir=None, backup=True):
     dbx = dropbox.Dropbox(config.DBX_TOKEN)
     dbx.users_get_current_account()
     if use_cursor:
@@ -118,6 +126,11 @@ def main(use_cursor=True, out_dir=config.kamera_db_folder, in_dir=None):
     else:
         entries = db_list_media_in_dir(dbx, in_dir)
     for entry in entries:
+        if backup:
+            print(f"Copying to bakcup: {entry.name}")
+            backup_info = get_backup_info(dbx, entry)
+            execute_transfer(dbx, **backup_info)
+
         print(f"Processing: {entry.name}")
         if entry.name.lower().endswith((".mp4", ".gif")):
             transfer_info = process_non_image(dbx, entry)
@@ -133,4 +146,4 @@ if __name__ == "__main__":
     elif sys.argv[1] == "cursor":
         db_make_cursor(dir="/Camera Uploads")
     elif sys.argv[1] == "process_dir":
-        main(in_dir=sys.argv[2], out_dir=sys.argv[3], use_cursor=False)
+        main(in_dir=sys.argv[2], out_dir=sys.argv[3], use_cursor=False, backup=False)
