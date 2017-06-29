@@ -31,29 +31,17 @@ folder_names = {
 media_extensions = (".jpg", ".jpeg", ".png", ".mp4", ".gif")
 
 
-def db_make_cursor(in_dir):
-    dbx = dropbox.Dropbox(config.DBX_TOKEN)
-    dbx.users_get_current_account()
-    result = dbx.files_list_folder(dir, include_media_info=True)
-    with open(path.join(config.home, "cursor"), "w") as txt:
-        txt.write(result.cursor)
-
-
-def db_list_media_in_dir(dbx, in_dir):
-    result = dbx.files_list_folder(in_dir, include_media_info=True)
-    for entry in result.entries:
-        if (entry.path_lower.endswith(media_extensions) and
-                isinstance(entry, dropbox.files.FileMetadata)):
-            yield entry
-
-
-def db_list_new_media(dbx):
-    has_more = True
-    with open(path.join(config.home, "cursor")) as txt:
-        cursor = txt.read()
-
-    while has_more:
+def db_list_new_media(dbx, dir_path):
+    cursor_path = path.join(config.home, dir_path.replace("/", "_")[-23:] + " cursor")
+    if not path.isfile(cursor_path):
+        print("No cursor found for folder")
+        result = dbx.files_list_folder(dir_path, include_media_info=True)
+    else:
+        with open(cursor_path) as txt:
+            cursor = txt.read()
         result = dbx.files_list_folder_continue(cursor)
+
+    while True:
         pprint(result)
         for entry in result.entries:
             if (entry.path_lower.endswith(media_extensions) and
@@ -64,9 +52,12 @@ def db_list_new_media(dbx):
         cursor = result.cursor
 
         # Repeat only if there's more to do
-        has_more = result.has_more
+        if result.has_more:
+            result = dbx.files_list_folder_continue(cursor)
+        else:
+            break
 
-    with open(path.join(config.home, "cursor"), "w") as txt:
+    with open(cursor_path, "w") as txt:
         txt.write(cursor)
 
 
@@ -90,8 +81,7 @@ def execute_transfer(dbx, out_dir, func, data, relative_dest):
 def get_backup_info(dbx, entry):
     date = image_processing.parse_date(entry)
     relative_dest = "/".join([str(date.year), folder_names[date.month], entry.name])
-    backup_info = {"func": dbx.files_copy, "data": entry.path_lower,
-                   "relative_dest": relative_dest, "out_dir": config.backup_db_folder}
+    backup_info = {"func": dbx.files_copy, "data": entry.path_lower, "relative_dest": relative_dest}
     return backup_info
 
 
@@ -118,19 +108,18 @@ def process_image(dbx, entry):
     return transfer_info
 
 
-def main(use_cursor=True, out_dir=config.kamera_db_folder, in_dir=None, backup=True):
+def main(in_dir=config.uploads_db_folder, out_dir=config.kamera_db_folder, backup_dir=config.backup_db_folder):
     dbx = dropbox.Dropbox(config.DBX_TOKEN)
     dbx.users_get_current_account()
-    if use_cursor:
-        entries = db_list_new_media(dbx)
-    else:
-        entries = db_list_media_in_dir(dbx, in_dir)
+
+    entries = db_list_new_media(dbx, in_dir)
+
     for entry in entries:
-        if backup:
         entry.media_info.db_metadata = entry.media_info.get_metadata() if entry.media_info else None
+        if backup_dir is not None:
             print(f"Copying to bakcup: {entry.name}")
             backup_info = get_backup_info(dbx, entry)
-            execute_transfer(dbx, **backup_info)
+            execute_transfer(dbx, out_dir=backup_dir, **backup_info)
 
         print(f"Processing: {entry.name}")
         if entry.name.lower().endswith((".mp4", ".gif")):
@@ -141,10 +130,4 @@ def main(use_cursor=True, out_dir=config.kamera_db_folder, in_dir=None, backup=T
 
 
 if __name__ == "__main__":
-    print(sys.argv)
-    if len(sys.argv) == 1:
-        main()
-    elif sys.argv[1] == "cursor":
-        db_make_cursor(dir="/Camera Uploads")
-    elif sys.argv[1] == "process_dir":
-        main(in_dir=sys.argv[2], out_dir=sys.argv[3], use_cursor=False, backup=False)
+    main()

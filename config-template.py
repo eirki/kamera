@@ -11,6 +11,8 @@ home = ""
 
 exifpath = ""
 
+uploads_db_folder = "/Camera Uploads"
+
 kamera_db_folder = "/kamera"
 
 backup_db_folder = "/backup"
