@@ -10,6 +10,7 @@ from timezonefinderL import TimezoneFinder
 from PIL import Image
 import piexif
 from geopy.distance import great_circle
+from resizeimage import resizeimage
 
 import config
 
@@ -67,6 +68,20 @@ def convert_png_to_jpg(entry, data):
     return data
 
 
+def resize(entry, img):
+    print(f"Resizing {entry.name}")
+    landscape = True if img.width > img.height else False
+    if landscape:
+        img = resizeimage.resize_height(img, size=1440)
+    else:
+        img = resizeimage.resize_width(img, size=1440)
+
+    new_data = BytesIO()
+    img.save(new_data, "JPEG")
+    data = new_data.getvalue()
+    return data
+
+
 def add_date(entry, date, metadata):
     datestring = date.strftime("%Y:%m:%d %H:%M:%S")
     print(f"Inserting date to {entry.name}: {datestring}")
@@ -85,6 +100,12 @@ def main(entry, data, db_metadata):
     # Convert image from PNG to JPG, put data into BytesIO obj
     if entry.path_lower.endswith("png"):
         data = convert_png_to_jpg(entry, data)
+        data_changed = True
+
+    # Convert image to smaller resolution if needed
+    img = Image.open(BytesIO(data))
+    if img.width > 1440 and img.height > 1440:
+        data = resize(entry, img)
         data_changed = True
 
     # Make metadata object from image data
