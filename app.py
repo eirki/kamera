@@ -93,7 +93,7 @@ def process_non_image(dbx, entry):
         relative_dest = "/".join(["Video", str(date.year), entry.name])
     elif entry.name.lower().endswith(".gif"):
         relative_dest = "/".join([str(date.year), folder_names[date.month], entry.name])
-    transfer_info = (dbx.files_copy, entry.path_lower, relative_dest)
+    transfer_info = {"func": dbx.files_copy, "data": entry.path_lower, "relative_dest": relative_dest}
     return transfer_info
 
 
@@ -104,9 +104,9 @@ def process_image(dbx, entry):
     relative_dest = "/".join([str(date.year), folder_names[date.month], filename + ".jpg"])
 
     if new_data:
-        transfer_info = (dbx.files_upload, new_data, relative_dest)
+        transfer_info = {"func": dbx.files_upload, "data": new_data, "relative_dest": relative_dest}
     else:
-        transfer_info = (dbx.files_copy, entry.path_lower, relative_dest)
+        transfer_info = {"func": dbx.files_copy, "data": entry.path_lower, "relative_dest": relative_dest}
     return transfer_info
 
 
@@ -123,7 +123,7 @@ def main(use_cursor=True, out_dir=config.kamera_db_folder, in_dir=None):
             transfer_info = process_non_image(dbx, entry)
         else:
             transfer_info = process_image(dbx, entry)
-        execute_transfer(dbx, out_dir, *transfer_info)
+        execute_transfer(dbx, out_dir, **transfer_info)
 
 
 if __name__ == "__main__":
