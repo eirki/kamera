@@ -39,7 +39,7 @@ def get_geo_tag(lat, lng):
     return tagstring
 
 
-def parse_date(entry):
+def parse_date(entry, db_metadata):
     if "burst" in entry.name.lower():
         naive_date = dt.datetime.strptime(entry.name[20:34], "%Y%m%d%H%M%S")
     else:
@@ -48,18 +48,18 @@ def parse_date(entry):
         except ValueError:
             naive_date = entry.client_modified
 
-    if entry.media_info.db_metadata.location:
+    if db_metadata and db_metadata.location:
         utc_date = naive_date.replace(tzinfo=dt.timezone.utc)
-        tz = TimezoneFinder().timezone_at(lat=entry.media_info.db_metadata.location.latitude,
-                                          lng=entry.media_info.db_metadata.location.longitude)
+        tz = TimezoneFinder().timezone_at(lat=db_metadata.location.latitude,
+                                          lng=db_metadata.location.longitude)
         local_date = utc_date.replace(tzinfo=dt.timezone.utc).astimezone(tz=pytz.timezone(tz))
         return local_date
     else:
         return naive_date
 
 
-def main(entry, data):
     new_data = None
+def main(entry, data, db_metadata):
     if entry.path_lower.endswith("png"):
         print(f"Converting to PNG: {entry.name}")
         new_data = BytesIO()
@@ -73,15 +73,15 @@ def main(entry, data):
         orig_datestring = metadata["Exif"][piexif.ExifIFD.DateTimeOriginal].decode()
         date = dt.datetime.strptime(orig_datestring, "%Y:%m:%d %H:%M:%S")
     except KeyError:
-        date = parse_date(entry)
         datestring = date.strftime("%Y:%m:%d %H:%M:%S")
         print(f"Inserting date to {entry.name}: {datestring}")
         metadata["Exif"][piexif.ExifIFD.DateTimeOriginal] = datestring
+        date = parse_date(entry, db_metadata)
 
     tagstring = None
-    if entry.media_info.db_metadata and entry.media_info.db_metadata.location:
-        tagstring = get_geo_tag(lat=entry.media_info.db_metadata.location.latitude,
-                                lng=entry.media_info.db_metadata.location.longitude)
+    if db_metadata and db_metadata.location:
+        tagstring = get_geo_tag(lat=db_metadata.location.latitude,
+                                lng=db_metadata.location.longitude)
         if tagstring:
             print(f"Tagging {entry.name}: {tagstring}")
             metadata["0th"][piexif.ImageIFD.XPKeywords] = tagstring.encode("utf-16")

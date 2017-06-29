@@ -81,15 +81,15 @@ def execute_transfer(dbx, out_dir, func, data, relative_dest):
             print(f"Skipping transfer, file already present: {absolute_dest}")
 
 
-def get_backup_info(dbx, entry):
-    date = image_processing.parse_date(entry)
+def get_backup_info(dbx, entry, db_metadata):
+    date = image_processing.parse_date(entry, db_metadata)
     relative_dest = "/".join([str(date.year), folder_names[date.month], entry.name])
     backup_info = {"func": dbx.files_copy, "data": entry.path_lower, "relative_dest": relative_dest}
     return backup_info
 
 
-def process_non_image(dbx, entry):
-    date = image_processing.parse_date(entry)
+def process_non_image(dbx, entry, db_metadata):
+    date = image_processing.parse_date(entry, db_metadata)
     if entry.name.lower().endswith(".mp4"):
         relative_dest = "/".join(["Video", str(date.year), entry.name])
     elif entry.name.lower().endswith(".gif"):
@@ -98,9 +98,9 @@ def process_non_image(dbx, entry):
     return transfer_info
 
 
-def process_image(dbx, entry):
+def process_image(dbx, entry, db_metadata):
     filedata, response = dbx.files_download(entry.path_lower)
-    new_data, date = image_processing.main(entry, response.raw.data)
+    new_data, date = image_processing.main(entry, response.raw.data, db_metadata)
     filename, ext = os.path.splitext(entry.name)
     relative_dest = "/".join([str(date.year), folder_names[date.month], filename + ".jpg"])
 
@@ -118,17 +118,18 @@ def main(in_dir=config.uploads_db_folder, out_dir=config.kamera_db_folder, backu
     entries = db_list_new_media(dbx, in_dir)
 
     for entry in entries:
-        entry.media_info.db_metadata = entry.media_info.get_metadata() if entry.media_info else None
+        print(f"Processing: {entry.name}. {entry}")
+        db_metadata = entry.media_info.get_metadata() if entry.media_info else None
+
         if backup_dir is not None:
             print(f"Copying to bakcup: {entry.name}")
-            backup_info = get_backup_info(dbx, entry)
+            backup_info = get_backup_info(dbx, entry, db_metadata)
             execute_transfer(dbx, out_dir=backup_dir, **backup_info)
 
-        print(f"Processing: {entry.name}")
         if entry.name.lower().endswith((".mp4", ".gif")):
-            transfer_info = process_non_image(dbx, entry)
+            transfer_info = process_non_image(dbx, entry, db_metadata)
         else:
-            transfer_info = process_image(dbx, entry)
+            transfer_info = process_image(dbx, entry, db_metadata)
         execute_transfer(dbx, out_dir, **transfer_info)
 
 
