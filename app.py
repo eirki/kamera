@@ -6,6 +6,7 @@ from os import path
 from functools import partial
 import os
 from pprint import pprint
+import traceback
 
 import dropbox
 
@@ -32,14 +33,7 @@ media_extensions = (".jpg", ".jpeg", ".png", ".mp4", ".gif")
 
 
 def db_list_new_media(dbx, dir_path):
-    cursor_path = path.join(config.home, dir_path.replace("/", "_")[-23:] + " cursor")
-    if not path.isfile(cursor_path):
-        print("No cursor found for folder")
-        result = dbx.files_list_folder(dir_path, include_media_info=True)
-    else:
-        with open(cursor_path) as txt:
-            cursor = txt.read()
-        result = dbx.files_list_folder_continue(cursor)
+    result = dbx.files_list_folder(dir_path, include_media_info=True)
 
     while True:
         pprint(result)
@@ -57,17 +51,14 @@ def db_list_new_media(dbx, dir_path):
         else:
             break
 
-    with open(cursor_path, "w") as txt:
-        txt.write(cursor)
-
 
 def execute_transfer(dbx, out_dir, func, data, relative_dest):
     absolute_dest = "/".join([out_dir, relative_dest])
 
     if func == dbx.files_upload:
-        transfer_func = partial(dbx.files_upload, f=data, path=absolute_dest)
-    elif func == dbx.files_copy:
-        transfer_func = partial(dbx.files_copy, from_path=data, to_path=absolute_dest)
+        transfer_func = partial(func, f=data, path=absolute_dest)
+    elif func in (dbx.files_copy, dbx.files_move):
+        transfer_func = partial(func, from_path=data, to_path=absolute_dest)
 
     try:
         print(f"Uploading/copying to dest: {absolute_dest}")
@@ -91,7 +82,7 @@ def execute_transfer(dbx, out_dir, func, data, relative_dest):
 def get_backup_info(dbx, entry, db_metadata):
     date = image_processing.parse_date(entry, db_metadata)
     relative_dest = "/".join([str(date.year), folder_names[date.month], entry.name])
-    backup_info = {"func": dbx.files_copy, "data": entry.path_lower, "relative_dest": relative_dest}
+    backup_info = {"func": dbx.files_move, "data": entry.path_lower, "relative_dest": relative_dest}
     return backup_info
 
 
@@ -125,20 +116,22 @@ def main(in_dir=config.uploads_db_folder, out_dir=config.kamera_db_folder, backu
     entries = db_list_new_media(dbx, in_dir)
 
     for entry in entries:
-        print(f"Processing: {entry.name}. {entry}")
-        db_metadata = entry.media_info.get_metadata() if entry.media_info else None
+        try:
+            print(f"Processing: {entry.name}. {entry}")
+            db_metadata = entry.media_info.get_metadata() if entry.media_info else None
 
-        if backup_dir is not None:
-            print(f"Copying to bakcup: {entry.name}")
+            if entry.name.lower().endswith((".mp4", ".gif")):
+                transfer_info = process_non_image(dbx, entry, db_metadata)
+            else:
+                transfer_info = process_image(dbx, entry, db_metadata)
+            execute_transfer(dbx, out_dir, **transfer_info)
+
+            print(f"Moving to bakcup: {entry.name}")
             backup_info = get_backup_info(dbx, entry, db_metadata)
             execute_transfer(dbx, out_dir=backup_dir, **backup_info)
-
-        if entry.name.lower().endswith((".mp4", ".gif")):
-            transfer_info = process_non_image(dbx, entry, db_metadata)
-        else:
-            transfer_info = process_image(dbx, entry, db_metadata)
-        execute_transfer(dbx, out_dir, **transfer_info)
-        print()
+            print()
+        except Exception as exc:
+            print(traceback.format_exc().decode(sys.getfilesystemencoding()))
 
 
 if __name__ == "__main__":
