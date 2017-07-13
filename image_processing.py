@@ -23,6 +23,8 @@ def get_closest_city(lat, lng):
 
 def get_closest_location(lat, lng, city):
     """Return closest location if image taken within 100 m"""
+    if not city.locations:
+        return None
     distance, closest_location = min((great_circle((loc.lat, loc.lng), (lat, lng)).meters, loc) for loc in city.locations)
     return closest_location if distance < 100 else None
 
