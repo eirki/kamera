@@ -131,7 +131,7 @@ def main(in_dir=config.uploads_db_folder, out_dir=config.kamera_db_folder, backu
             execute_transfer(dbx, out_dir=backup_dir, **backup_info)
             print()
         except Exception as exc:
-            print(traceback.format_exc().decode(sys.getfilesystemencoding()))
+            traceback.print_exc()
 
 
 if __name__ == "__main__":
