@@ -105,13 +105,13 @@ def main(entry, data, db_metadata):
         data = convert_png_to_jpg(entry, data)
         data_changed = True
 
+    # Make metadata object from image data
+    exif_metadata = piexif.load(data)
+
     # Convert image to smaller resolution if needed
     if db_metadata.dimensions.width > 1440 and db_metadata.dimensions.height > 1440:
         data = resize(entry, data)
         data_changed = True
-
-    # Make metadata object from image data
-    exif_metadata = piexif.load(data)
 
     # Parse image date. Add date to metadata object if missing
     try:
