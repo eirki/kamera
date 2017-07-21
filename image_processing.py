@@ -70,8 +70,9 @@ def convert_png_to_jpg(entry, data):
     return data
 
 
-def resize(entry, img):
+def resize(entry, data):
     print(f"Resizing {entry.name}")
+    img = Image.open(BytesIO(data))
     landscape = True if img.width > img.height else False
     if landscape:
         img = resizeimage.resize_height(img, size=1440)
@@ -105,9 +106,8 @@ def main(entry, data, db_metadata):
         data_changed = True
 
     # Convert image to smaller resolution if needed
-    img = Image.open(BytesIO(data))
-    if img.width > 1440 and img.height > 1440:
-        data = resize(entry, img)
+    if db_metadata.dimensions.width > 1440 and db_metadata.dimensions.height > 1440:
+        data = resize(entry, data)
         data_changed = True
 
     # Make metadata object from image data
