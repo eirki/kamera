@@ -131,7 +131,15 @@ def main(in_dir=config.uploads_db_folder, out_dir=config.kamera_db_folder, backu
             backup_info = get_backup_info(dbx, entry, db_metadata)
             execute_transfer(dbx, out_dir=backup_dir, **backup_info)
         except Exception as exc:
+            print(f"Exception occured, moving to Error subfolder: {entry.name}")
             traceback.print_exc()
+            execute_transfer(
+                dbx=dbx,
+                func=dbx.files_move,
+                data=entry.path_lower,
+                out_dir=in_dir,
+                relative_dest="/".join(["Errors", entry.name])
+            )
         finally:
             print()
 
