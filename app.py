@@ -37,6 +37,7 @@ def db_list_new_media(dbx, dir_path):
 
     while True:
         pprint(result)
+        print()
         for entry in result.entries:
             if (entry.path_lower.endswith(media_extensions) and
                     isinstance(entry, dropbox.files.FileMetadata)):
@@ -129,9 +130,10 @@ def main(in_dir=config.uploads_db_folder, out_dir=config.kamera_db_folder, backu
             print(f"Moving to bakcup: {entry.name}")
             backup_info = get_backup_info(dbx, entry, db_metadata)
             execute_transfer(dbx, out_dir=backup_dir, **backup_info)
-            print()
         except Exception as exc:
             traceback.print_exc()
+        finally:
+            print()
 
 
 if __name__ == "__main__":
