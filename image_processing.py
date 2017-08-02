@@ -89,7 +89,6 @@ def add_date(entry, date, metadata):
     datestring = date.strftime("%Y:%m:%d %H:%M:%S")
     print(f"Inserting date to {entry.name}: {datestring}")
     metadata["Exif"][piexif.ExifIFD.DateTimeOriginal] = datestring
-    return date
 
 
 def add_tag(entry, metadata, tagstring):
