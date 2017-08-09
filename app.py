@@ -61,8 +61,14 @@ def execute_transfer(dbx, out_dir, func, data, relative_dest):
     elif func in (dbx.files_copy, dbx.files_move):
         transfer_func = partial(func, from_path=data, to_path=absolute_dest)
 
+    method_desc = {
+        dbx.files_upload: "Uploading",
+        dbx.files_copy: "Copying",
+        dbx.files_move: "Moving",
+    }[func]
+
     try:
-        print(f"Uploading/copying to dest: {absolute_dest}")
+        print(f"{method_desc} to dest: {absolute_dest}")
         transfer_func()
     except dropbox.exceptions.BadInputError:
         print(f"Making folder: {absolute_dest}")
