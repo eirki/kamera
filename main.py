@@ -1,8 +1,6 @@
-#!  /usr/bin/env python3
+#! /usr/bin/env python3.6
 # coding: utf-8
 
-import sys
-from os import path
 from functools import partial
 import os
 from pprint import pprint
@@ -99,7 +97,11 @@ def process_non_image(dbx, entry, db_metadata):
         relative_dest = "/".join(["Video", str(date.year), entry.name])
     elif entry.name.lower().endswith(".gif"):
         relative_dest = "/".join([str(date.year), folder_names[date.month], entry.name])
-    transfer_info = {"func": dbx.files_copy, "data": entry.path_lower, "relative_dest": relative_dest}
+    transfer_info = {
+        "func": dbx.files_copy,
+        "data": entry.path_lower,
+        "relative_dest": relative_dest
+    }
     return transfer_info
 
 
@@ -110,13 +112,22 @@ def process_image(dbx, entry, db_metadata):
     relative_dest = "/".join([str(date.year), folder_names[date.month], filename + ".jpg"])
 
     if new_data:
-        transfer_info = {"func": dbx.files_upload, "data": new_data, "relative_dest": relative_dest}
+        transfer_info = {
+            "func": dbx.files_upload,
+            "data": new_data,
+            "relative_dest": relative_dest
+        }
     else:
-        transfer_info = {"func": dbx.files_copy, "data": entry.path_lower, "relative_dest": relative_dest}
+        transfer_info = {
+            "func": dbx.files_copy,
+            "data": entry.path_lower,
+            "relative_dest": relative_dest
+        }
     return transfer_info
 
 
-def main(in_dir=config.uploads_db_folder, out_dir=config.kamera_db_folder, backup_dir=config.backup_db_folder):
+def main(in_dir=config.uploads_db_folder, out_dir=config.kamera_db_folder,
+         backup_dir=config.backup_db_folder):
     dbx = dropbox.Dropbox(config.DBX_TOKEN)
     dbx.users_get_current_account()
 

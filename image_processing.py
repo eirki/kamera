@@ -17,7 +17,10 @@ import config
 
 def get_closest_city(lat, lng):
     """Return city if image taken within 50 km from center of city"""
-    distance, closest_city = min((great_circle((city.lat, city.lng), (lat, lng)).km, city) for city in config.cities)
+    distance, closest_city = min((
+        great_circle((city.lat, city.lng), (lat, lng)).km, city)
+        for city in config.cities
+    )
     return closest_city if distance < 50 else None
 
 
@@ -25,7 +28,10 @@ def get_closest_location(lat, lng, city):
     """Return closest location if image taken within 100 m"""
     if not city.locations:
         return None
-    distance, closest_location = min((great_circle((loc.lat, loc.lng), (lat, lng)).meters, loc) for loc in city.locations)
+    distance, closest_location = min((
+        great_circle((loc.lat, loc.lng), (lat, lng)).meters, loc)
+        for loc in city.locations
+    )
     return closest_location if distance < 100 else None
 
 
