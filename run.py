@@ -30,5 +30,5 @@ if not is_lock_free():
     sys.exit()
 
 
-import app
-app.main()
+import main
+main.main()
