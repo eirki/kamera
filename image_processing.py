@@ -57,19 +57,16 @@ def parse_date(entry, db_metadata):
         except ValueError:
             naive_date = entry.client_modified
 
+    utc_date = naive_date.replace(tzinfo=dt.timezone.utc)
+
     if db_metadata and db_metadata.location:
-        utc_date = naive_date.replace(tzinfo=dt.timezone.utc)
         img_tz = TimezoneFinder().timezone_at(lat=db_metadata.location.latitude,
                                               lng=db_metadata.location.longitude)
-        local_date = (
-            utc_date.replace(tzinfo=dt.timezone.utc)
-                    .astimezone(tz=pytz.timezone(img_tz))
-        )
-    else:
-        local_date = (
-            utc_date.replace(tzinfo=dt.timezone.utc)
-                    .astimezone(tz=pytz.timezone(config.default_tz))
-        )
+        if img_tz:
+            local_date = utc_date.astimezone(tz=pytz.timezone(img_tz))
+            return local_date
+
+    local_date = utc_date.astimezone(tz=config.default_tz)
     return local_date
 
 
