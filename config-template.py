@@ -3,6 +3,8 @@
 
 from collections import namedtuple
 
+import pytz
+
 app_id = ""
 
 DBX_TOKEN = ""
@@ -30,3 +32,5 @@ cities = [
         ]),
     City(name="City3", lat=0.0, lng=0.0, locations=[])
 ]
+
+default_tz = pytz.timezone("Europe/Oslo")

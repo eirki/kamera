@@ -59,12 +59,18 @@ def parse_date(entry, db_metadata):
 
     if db_metadata and db_metadata.location:
         utc_date = naive_date.replace(tzinfo=dt.timezone.utc)
-        tz = TimezoneFinder().timezone_at(lat=db_metadata.location.latitude,
-                                          lng=db_metadata.location.longitude)
-        local_date = utc_date.replace(tzinfo=dt.timezone.utc).astimezone(tz=pytz.timezone(tz))
-        return local_date
+        img_tz = TimezoneFinder().timezone_at(lat=db_metadata.location.latitude,
+                                              lng=db_metadata.location.longitude)
+        local_date = (
+            utc_date.replace(tzinfo=dt.timezone.utc)
+                    .astimezone(tz=pytz.timezone(img_tz))
+        )
     else:
-        return naive_date
+        local_date = (
+            utc_date.replace(tzinfo=dt.timezone.utc)
+                    .astimezone(tz=pytz.timezone(config.default_tz))
+        )
+    return local_date
 
 
 def convert_png_to_jpg(entry, data):
