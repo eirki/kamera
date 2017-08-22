@@ -74,7 +74,7 @@ def get_geo_tag(lat, lng):
 
 
 def recognize_face(img_data):
-    loaded_img = face_recognition.load_image_file(img_data)
+    loaded_img = face_recognition.load_image_file(BytesIO(img_data))
     unknown_encodings = face_recognition.face_encodings(loaded_img)
 
     tolerance = 0.4
