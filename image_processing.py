@@ -193,7 +193,7 @@ def main(entry, data, db_metadata):
 
     if geotag or peopletag:
         if geotag and peopletag:
-            tagstring = ";".join([geotag, peopletag])
+            tagstring = "; ".join([geotag, peopletag])
         else:
             tagstring = geotag or peopletag
         add_tag(entry, exif_metadata, tagstring)
