@@ -6,6 +6,7 @@ import subprocess
 import datetime as dt
 import pytz
 import os
+import sys
 
 from timezonefinderL import TimezoneFinder
 from PIL import Image
@@ -150,9 +151,21 @@ def add_date(entry, date, metadata):
     metadata["Exif"][piexif.ExifIFD.DateTimeOriginal] = datestring
 
 
-def add_tag(entry, metadata, tagstring):
-    print(f"Tagging {entry.name}: {tagstring}")
-    metadata["0th"][piexif.ImageIFD.XPKeywords] = tagstring.encode("utf-16")
+def add_tag(entry, data, geotag, peopletag):
+    print(f"Tagging {entry.name}: {geotag} {peopletag}")
+    # metadata["0th"][piexif.ImageIFD.XPKeywords] = tagstring.encode("utf-16")
+    args = [config.exifpath]
+    if sys.platform == "win32":
+        args.append("-L")
+    if geotag:
+        args.append(f"-xmp:Subject={geotag}")
+    if peopletag:
+        args.append(f"-xmp:Subject={peopletag}")
+    args.append("-")
+    proc = subprocess.Popen(args, stdin=subprocess.PIPE, stdout=subprocess.PIPE)
+    stdout, stderr = proc.communicate(data)
+    new_data = stdout
+    return new_data
 
 
 def main(entry, data, db_metadata):
@@ -192,27 +205,17 @@ def main(entry, data, db_metadata):
         peopletag = recognize_face(data)
 
     if geotag or peopletag:
-        if geotag and peopletag:
-            tagstring = "; ".join([geotag, peopletag])
-        else:
-            tagstring = geotag or peopletag
-        add_tag(entry, exif_metadata, tagstring)
+        data = add_tag(entry, data, geotag, peopletag)
         data_changed = True
 
-    # If no convertion, date fixing, or tagging, return only the parsed image date
+    # If no convertion, resizing,date fixing, or tagging, return only the parsed image date
     if not data_changed:
         return None, date
 
-    # Add metadata from metadata object to image data, run through exiftool if tagged
+    # Add metadata from metadata object to image data
     metadata_bytes = piexif.dump(exif_metadata)
     new_file = BytesIO()
     piexif.insert(metadata_bytes, data, new_file)
     new_data = new_file.getvalue()
-    if geotag or peopletag:
-        print("Converting exif to xmp")
-        proc = subprocess.Popen([config.exifpath, "-xmp:Subject<exif:XPKeywords", "-"],
-                                stdin=subprocess.PIPE, stdout=subprocess.PIPE)
-        stdout, stderr = proc.communicate(new_data)
-        new_data = stdout
 
     return new_data, date
