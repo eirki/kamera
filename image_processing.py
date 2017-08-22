@@ -192,7 +192,10 @@ def main(entry, data, db_metadata):
         peopletag = recognize_face(data)
 
     if geotag or peopletag:
-        tagstring = ";".join([geotag, peopletag])
+        if geotag and peopletag:
+            tagstring = ";".join([geotag, peopletag])
+        else:
+            tagstring = geotag or peopletag
         add_tag(entry, exif_metadata, tagstring)
         data_changed = True
 
