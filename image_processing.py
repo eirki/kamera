@@ -205,7 +205,7 @@ def main(entry, data, db_metadata):
     new_file = BytesIO()
     piexif.insert(metadata_bytes, data, new_file)
     new_data = new_file.getvalue()
-    if tagstring:
+    if geotag or peopletag:
         print("Converting exif to xmp")
         proc = subprocess.Popen([config.exifpath, "-xmp:Subject<exif:XPKeywords", "-"],
                                 stdin=subprocess.PIPE, stdout=subprocess.PIPE)
