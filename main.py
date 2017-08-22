@@ -131,6 +131,8 @@ def main(in_dir=config.uploads_db_folder, out_dir=config.kamera_db_folder,
     dbx = dropbox.Dropbox(config.DBX_TOKEN)
     dbx.users_get_current_account()
 
+    image_processing.load_encodings()
+
     entries = db_list_new_media(dbx, in_dir)
 
     for entry in entries:

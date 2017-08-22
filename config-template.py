@@ -34,3 +34,9 @@ cities = [
 ]
 
 default_tz = pytz.timezone("Europe/Oslo")
+
+Person = namedtuple("Person", ["name, encoding"])
+people = [
+    Person(name="Person1 name", encodings=[]),
+    Person(name="Person2 name", encodings=[]),
+]

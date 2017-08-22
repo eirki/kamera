@@ -2,6 +2,7 @@ config.py
 exiftool/
 cursor
 
+faces*
 testdata*
 *cursor
 
