@@ -94,9 +94,9 @@ def recognize_face(img_data):
         if smallest_dist < tolerance:
             recognized_person = known_people[distances.index(smallest_dist)]
             known_people.remove(recognized_person)
-            recognized_people.append(recognized_person)
+            recognized_people.append(recognized_person.name)
 
-    return ";".join([person.name for person in recognized_people])
+    return recognized_people
 
 
 def parse_date(entry, db_metadata):
@@ -151,16 +151,13 @@ def add_date(entry, date, metadata):
     metadata["Exif"][piexif.ExifIFD.DateTimeOriginal] = datestring
 
 
-def add_tag(entry, data, geotag, peopletag):
-    print(f"Tagging {entry.name}: {geotag} {peopletag}")
+def add_tag(entry, data, tags):
+    print(f"Tagging {entry.name}: {tags}")
     # metadata["0th"][piexif.ImageIFD.XPKeywords] = tagstring.encode("utf-16")
     args = [config.exifpath]
     if sys.platform == "win32":
         args.append("-L")
-    if geotag:
-        args.append(f"-xmp:Subject={geotag}")
-    if peopletag:
-        args.append(f"-xmp:Subject={peopletag}")
+    args.extend([f"-xmp:Subject={tag}" for tag in tags])
     args.append("-")
     proc = subprocess.Popen(args, stdin=subprocess.PIPE, stdout=subprocess.PIPE)
     stdout, stderr = proc.communicate(data)
@@ -193,19 +190,21 @@ def main(entry, data, db_metadata):
         add_date(entry, date, exif_metadata)
         data_changed = True
 
+    tags = []
     # Get geotag. Add tag to metadata object if present
-    geotag = ""
     if db_metadata and db_metadata.location:
         geotag = get_geo_tag(lat=db_metadata.location.latitude,
                              lng=db_metadata.location.longitude)
+        if geotag is not None:
+            tags.append(geotag)
 
     # Check if any recognized faces
-    peopletag = ""
     if face_recognition is not None:
-        peopletag = recognize_face(data)
+        peopletags = recognize_face(data)
+        tags.extend(peopletags)
 
-    if geotag or peopletag:
-        data = add_tag(entry, data, geotag, peopletag)
+    if tags:
+        data = add_tag(entry, data, tags)
         data_changed = True
 
     # If no convertion, resizing,date fixing, or tagging, return only the parsed image date
