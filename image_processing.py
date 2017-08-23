@@ -34,7 +34,7 @@ def load_encodings():
             data = face_recognition.load_image_file(os.path.join(path, img))
             encodings = face_recognition.face_encodings(data)
             if len(encodings) == 0:
-                raise Exception(f"No encodings found: {img}")
+                print(f"Warning: No encodings found: {img}")
             elif len(encodings) > 1:
                 raise Exception(f"Multiple encodings found: {img}")
             encoding = encodings[0]
