@@ -7,6 +7,7 @@ import datetime as dt
 import pytz
 import os
 import sys
+import json
 
 from timezonefinderL import TimezoneFinder
 from PIL import Image
@@ -16,6 +17,7 @@ from resizeimage import resizeimage
 
 try:
     import face_recognition
+    import numpy as np
 except ImportError:
     face_recognition = None
     print("Unable to import face_recognition.")
@@ -31,13 +33,23 @@ def load_encodings():
         path = os.path.join(config.home, "faces", person.name)
         imgs = os.listdir(path)
         for img in imgs:
-            data = face_recognition.load_image_file(os.path.join(path, img))
-            encodings = face_recognition.face_encodings(data)
-            if len(encodings) == 0:
-                print(f"Warning: No encodings found: {img}")
-            elif len(encodings) > 1:
-                raise Exception(f"Multiple encodings found: {img}")
-            encoding = encodings[0]
+            img_path = os.path.join(path, img)
+            root, ext = os.path.splitext(img_path)
+            json_path = root + ".json"
+            if os.path.exists(json_path):
+                with open(json_path) as j:
+                    encoding = np.array(json.load(j))
+            else:
+                data = face_recognition.load_image_file(img_path)
+                encodings = face_recognition.face_encodings(data)
+                if len(encodings) == 0:
+                    print(f"Warning: No encodings found: {img}")
+                    continue
+                elif len(encodings) > 1:
+                    raise Exception(f"Multiple encodings found: {img}")
+                encoding = encodings[0]
+                with open(json_path, "w") as j:
+                    json.dump(encoding.tolist(), j)
             person.encodings.append(encoding)
 
 
