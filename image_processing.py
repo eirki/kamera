@@ -5,9 +5,7 @@ from io import BytesIO
 import subprocess
 import datetime as dt
 import pytz
-import os
 import sys
-import json
 
 from timezonefinderL import TimezoneFinder
 from PIL import Image
@@ -15,43 +13,8 @@ import piexif
 from geopy.distance import great_circle
 from resizeimage import resizeimage
 
-try:
-    import face_recognition
-    import numpy as np
-except ImportError:
-    face_recognition = None
-    print("Unable to import face_recognition.")
-
 import config
-
-
-def load_encodings():
-    if face_recognition is None:
-        return
-
-    for person in config.people:
-        path = os.path.join(config.home, "faces", person.name)
-        imgs = os.listdir(path)
-        for img in imgs:
-            img_path = os.path.join(path, img)
-            root, ext = os.path.splitext(img_path)
-            json_path = root + ".json"
-            if os.path.exists(json_path):
-                with open(json_path) as j:
-                    encoding = np.array(json.load(j))
-            else:
-                data = face_recognition.load_image_file(img_path)
-                encodings = face_recognition.face_encodings(data)
-                if len(encodings) == 0:
-                    print(f"Warning: No encodings found: {img}")
-                    continue
-                elif len(encodings) > 1:
-                    raise Exception(f"Multiple encodings found: {img}")
-                encoding = encodings[0]
-                with open(json_path, "w") as j:
-                    json.dump(encoding.tolist(), j)
-            person.encodings.append(encoding)
-
+import recognition
 
 def get_closest_city(lat, lng):
     """Return city if image taken within 50 km from center of city"""
@@ -84,31 +47,6 @@ def get_geo_tag(lat, lng):
             else:
                 tagstring = city.name
     return tagstring
-
-
-def recognize_face(img_data):
-    loaded_img = face_recognition.load_image_file(BytesIO(img_data))
-    unknown_encodings = face_recognition.face_encodings(loaded_img)
-
-    tolerance = 0.4
-
-    known_people = config.people[:]
-    recognized_people = []
-    for unknown_encoding in unknown_encodings:
-        # Get most similar match for each person's encodings
-        distances = [
-            min(face_recognition.face_distance(person.encodings, unknown_encoding))
-            for person in known_people
-        ]
-
-        # Get distance of most similar person
-        smallest_dist = min(distances)
-        if smallest_dist < tolerance:
-            recognized_person = known_people[distances.index(smallest_dist)]
-            known_people.remove(recognized_person)
-            recognized_people.append(recognized_person.name)
-
-    return recognized_people
 
 
 def parse_date(entry, db_metadata):
@@ -211,8 +149,8 @@ def main(entry, data, db_metadata):
             tags.append(geotag)
 
     # Check if any recognized faces
-    if face_recognition is not None:
-        peopletags = recognize_face(data)
+    if recognition.face_recognition is not None:
+        peopletags = recognition.recognize_face(data)
         tags.extend(peopletags)
 
     if tags:
