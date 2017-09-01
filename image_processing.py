@@ -4,10 +4,8 @@
 from io import BytesIO
 import subprocess
 import datetime as dt
-import pytz
 import sys
 
-from timezonefinderL import TimezoneFinder
 from PIL import Image
 import piexif
 from geopy.distance import great_circle
@@ -15,6 +13,7 @@ from resizeimage import resizeimage
 
 import config
 import recognition
+
 
 def get_closest_city(lat, lng):
     """Return city if image taken within 50 km from center of city"""
@@ -49,30 +48,7 @@ def get_geo_tag(lat, lng):
     return tagstring
 
 
-def parse_date(entry, db_metadata):
-    if "burst" in entry.name.lower():
-        naive_date = dt.datetime.strptime(entry.name[20:34], "%Y%m%d%H%M%S")
-    else:
-        try:
-            naive_date = dt.datetime.strptime(entry.name[:19], "%Y-%m-%d %H.%M.%S")
-        except ValueError:
-            naive_date = entry.client_modified
-
-    utc_date = naive_date.replace(tzinfo=dt.timezone.utc)
-
-    if db_metadata and db_metadata.location:
-        img_tz = TimezoneFinder().timezone_at(lat=db_metadata.location.latitude,
-                                              lng=db_metadata.location.longitude)
-        if img_tz:
-            local_date = utc_date.astimezone(tz=pytz.timezone(img_tz))
-            return local_date
-
-    local_date = utc_date.astimezone(tz=config.default_tz)
-    return local_date
-
-
-def convert_png_to_jpg(entry, data):
-    print(f"Converting to PNG: {entry.name}")
+def convert_png_to_jpg(data):
     old_data = BytesIO(data)
     new_data = BytesIO()
     Image.open(old_data).save(new_data, "JPEG")
@@ -80,8 +56,7 @@ def convert_png_to_jpg(entry, data):
     return data
 
 
-def resize(entry, data):
-    print(f"Resizing {entry.name}")
+def resize(data):
     img = Image.open(BytesIO(data))
     landscape = True if img.width > img.height else False
     if landscape:
@@ -95,14 +70,12 @@ def resize(entry, data):
     return data
 
 
-def add_date(entry, date, metadata):
+def add_date(date, metadata):
     datestring = date.strftime("%Y:%m:%d %H:%M:%S")
-    print(f"Inserting date to {entry.name}: {datestring}")
     metadata["Exif"][piexif.ExifIFD.DateTimeOriginal] = datestring
 
 
-def add_tag(entry, data, tags):
-    print(f"Tagging {entry.name}: {tags}")
+def add_tag(data, tags):
     # metadata["0th"][piexif.ImageIFD.XPKeywords] = tagstring.encode("utf-16")
     args = [config.exifpath]
     if sys.platform == "win32":
@@ -115,36 +88,41 @@ def add_tag(entry, data, tags):
     return new_data
 
 
-def main(entry, data, db_metadata):
+def main(data, name, date, filetype, location, dimensions):
     data_changed = None
 
     # Convert image from PNG to JPG, put data into BytesIO obj
-    if entry.path_lower.endswith("png"):
-        data = convert_png_to_jpg(entry, data)
+    if filetype == "png":
+        print(f"{name}: Converting to JPG")
+        data = convert_png_to_jpg(data)
         data_changed = True
 
     # Make metadata object from image data
     exif_metadata = piexif.load(data)
 
     # Convert image to smaller resolution if needed
-    if db_metadata and db_metadata.dimensions.width > 1440 and db_metadata.dimensions.height > 1440:
-        data = resize(entry, data)
+    if dimensions and dimensions.width > 1440 and dimensions.height > 1440:
+        print(f"{name}: Resizing")
+        data = resize(data)
         data_changed = True
 
-    # Parse image date. Add date to metadata object if missing
+    # Add date to metadata object if missing
     try:
         orig_datestring = exif_metadata["Exif"][piexif.ExifIFD.DateTimeOriginal].decode()
-        date = dt.datetime.strptime(orig_datestring, "%Y:%m:%d %H:%M:%S")
+        exif_date = dt.datetime.strptime(orig_datestring, "%Y:%m:%d %H:%M:%S")
     except KeyError:
-        date = parse_date(entry, db_metadata)
-        add_date(entry, date, exif_metadata)
+        print(f"{name}: Inserting date {date}")
+        add_date(date, exif_metadata)
+        exif_date = None
         data_changed = True
 
     tags = []
     # Get geotag. Add tag to metadata object if present
-    if db_metadata and db_metadata.location:
-        geotag = get_geo_tag(lat=db_metadata.location.latitude,
-                             lng=db_metadata.location.longitude)
+    if location:
+        geotag = get_geo_tag(
+            lat=location.latitude,
+            lng=location.longitude,
+        )
         if geotag is not None:
             tags.append(geotag)
 
@@ -154,12 +132,13 @@ def main(entry, data, db_metadata):
         tags.extend(peopletags)
 
     if tags:
-        data = add_tag(entry, data, tags)
+        print(f"{name}: Tagging {tags}")
+        data = add_tag(data, tags)
         data_changed = True
 
     # If no convertion, resizing,date fixing, or tagging, return only the parsed image date
     if not data_changed:
-        return None, date
+        return None, exif_date
 
     # Add metadata from metadata object to image data
     metadata_bytes = piexif.dump(exif_metadata)
@@ -167,4 +146,4 @@ def main(entry, data, db_metadata):
     piexif.insert(metadata_bytes, data, new_file)
     new_data = new_file.getvalue()
 
-    return new_data, date
+    return new_data, exif_date
