@@ -106,9 +106,8 @@ def recognize_face(img_data):
         recognized_people = _get_best_match_for_each_face(all_facial_matches)
     else:
         recognized_people = [
-            person
-            for match in all_facial_matches
-            for distance, person in match
+            match_list[0].name
+            for match_list in all_facial_matches
         ]
 
     return recognized_people
