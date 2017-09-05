@@ -3,6 +3,7 @@
 import os
 import json
 from io import BytesIO
+from collections import namedtuple
 
 try:
     import face_recognition
@@ -12,6 +13,8 @@ except ImportError:
     print("Unable to import face_recognition.")
 
 import config
+
+Match = namedtuple("Match", ["distance", "name"])
 
 
 def load_encodings():
@@ -43,28 +46,46 @@ def load_encodings():
 
 
 def _match_face_with_known_people(known_people, unknown_encoding):
-    matches = []
+    """
+    Returns possible matches for a single unknown face encoding
+
+    Args:
+        known_people: list of config.Person namedtuples, with fields `name` and `encodings`
+        unknown_encoding: single encoding from a picture
+
+    Returns:
+        matches: list of matches, one match for each known person more similar than tolerance
+    """
+
+    match_list = []
     for person in known_people:
         # Get most similar match for each person's encodings
         distance = min(face_recognition.face_distance(person.encodings, unknown_encoding))
         if distance < config.recognition_tolerance:
-            matches.append((distance, person.name))
-    matches.sort()
-    return matches
+            match_list.append(Match(distance, person.name))
+    match_list.sort()
+    return match_list
 
 
-def _get_best_facial_matches(all_facial_matches):
+def _get_best_match_for_each_face(all_facial_matches):
+    """
+    Returns list of best matches for multiple facial encodings, given a list of possible matches
+
+    Args:
+        all_facial_matches: list of list of matches
+        recognized_people: list of names, one name for each list of match_lists
+    """
     recognized_people = []
     while any(all_facial_matches):
         all_facial_matches.sort()
         matches_for_pic_with_best_match = all_facial_matches.pop(0)
-        lowest_distance, most_similar_person = matches_for_pic_with_best_match[0]
-        recognized_people.append(most_similar_person)
+        best_match = matches_for_pic_with_best_match[0]
+        recognized_people.append(best_match.name)
 
-        # filter out person from remaining matches
+        # filter out recognized person from remaining matches
         all_facial_matches = [
-            [(distance, person) for distance, person in array if person != most_similar_person]
-            for array in all_facial_matches
+            [match for match in matchlist if match.name != best_match.name]
+            for matchlist in all_facial_matches
         ]
     return recognized_people
 
@@ -77,11 +98,12 @@ def recognize_face(img_data):
 
     all_facial_matches = []
     for unknown_encoding in unknown_encodings:
-        matches = _match_face_with_known_people(known_people, unknown_encoding)
-        all_facial_matches.append(matches)
+        match_list = _match_face_with_known_people(known_people, unknown_encoding)
+        if match_list:
+            all_facial_matches.append(match_list)
 
     if any(len(n_matches) > 1 for n_matches in all_facial_matches):
-        recognized_people = _get_best_facial_matches(all_facial_matches)
+        recognized_people = _get_best_match_for_each_face(all_facial_matches)
     else:
         recognized_people = [
             person
