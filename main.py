@@ -136,7 +136,7 @@ def upload_entry(dbx, path_lower, new_data, out_dir, date):
     execute_transfer(dbx, transfer_func, destination)
 
 
-def process_entry(dbx, entry, out_dir, backup_dir):
+def process_entry(dbx, entry, out_dir, backup_dir, error_dir):
     print(f"{entry.name}: Processing")
     print(entry)
     try:
@@ -175,12 +175,13 @@ def process_entry(dbx, entry, out_dir, backup_dir):
     except Exception as exc:
         print(f"Exception occured, moving to Error subfolder: {entry.name}")
         traceback.print_exc()
-        move_entry(dbx, entry.path_lower, out_dir, subfolder="/".join(["Errors", entry.name]))
+        move_entry(dbx, entry.path_lower, error_dir, subfolder="Errors")
     finally:
         print()
 
 
-def main(in_dir=config.uploads_db_folder, out_dir=config.kamera_db_folder,
+def main(in_dir=config.uploads_db_folder,
+         out_dir=config.kamera_db_folder,
          backup_dir=config.backup_db_folder):
     dbx = dropbox.Dropbox(config.DBX_TOKEN)
     dbx.users_get_current_account()
@@ -190,7 +191,13 @@ def main(in_dir=config.uploads_db_folder, out_dir=config.kamera_db_folder,
     entries = db_list_new_media(dbx, in_dir)
 
     for entry in entries:
-        process_entry(dbx, entry, out_dir, backup_dir)
+        process_entry(
+            dbx=dbx,
+            entry=entry,
+            out_dir=out_dir,
+            backup_dir=backup_dir,
+            error_dir=in_dir
+        )
 
 
 if __name__ == "__main__":
