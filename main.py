@@ -98,34 +98,31 @@ def execute_transfer(dbx, transfer_func, destination):
                 raise
 
 
-def move_entry(dbx, path_lower, out_dir, date=None, subfolder=None):
-    path, name = os.path.split(path_lower)
+def move_entry(dbx, name, path, out_dir, date=None, subfolder=None):
     if date is not None:
         destination = "/".join([out_dir, str(date.year), folder_names[date.month], name])
     elif subfolder is not None:
         destination = "/".join([out_dir, subfolder, name])
 
-    transfer_func = partial(dbx.files_move, from_path=path_lower, to_path=destination)
+    transfer_func = partial(dbx.files_move, from_path=path, to_path=destination)
 
     print(f"{name}: Moving to dest: {destination}")
     execute_transfer(dbx, transfer_func, destination)
 
 
-def copy_entry(dbx, path_lower, out_dir, date):
-    path, name = os.path.split(path_lower)
+def copy_entry(dbx, name, path, out_dir, date):
     if name.lower().endswith(".mp4"):
         destination = "/".join([out_dir, "Video", str(date.year), name])
     else:
         destination = "/".join([out_dir, str(date.year), folder_names[date.month], name])
 
-    transfer_func = partial(dbx.files_copy, from_path=path_lower, to_path=destination)
+    transfer_func = partial(dbx.files_copy, from_path=path, to_path=destination)
 
     print(f"{name}: Copying to dest: {destination}")
     execute_transfer(dbx, transfer_func, destination)
 
 
-def upload_entry(dbx, path_lower, new_data, out_dir, date):
-    path, old_name = os.path.split(path_lower)
+def upload_entry(dbx, old_name, path, new_data, out_dir, date):
     filename, ext = os.path.splitext(old_name)
     new_name = filename + ".jpg"
     destination = "/".join([out_dir, str(date.year), folder_names[date.month], new_name])
@@ -141,9 +138,11 @@ def process_entry(dbx, entry, out_dir, backup_dir, error_dir):
     print(entry)
     try:
         root, filetype = os.path.splitext(entry.name)
+        name = entry.name
+        path = entry.path_lower
         if filetype in (".mp4", ".gif"):
             date = parse_date(entry)
-            copy_entry(dbx, entry.path_lower, out_dir, date)
+            copy_entry(dbx, name, path, out_dir, date)
 
         else:
             if entry.media_info:
@@ -169,15 +168,15 @@ def process_entry(dbx, entry, out_dir, backup_dir, error_dir):
                 date = exif_date
 
             if new_data is None:
-                copy_entry(dbx, entry.path_lower, out_dir, date)
+                copy_entry(dbx, name, path, out_dir, date)
             else:
-                upload_entry(dbx, entry.path_lower, new_data, out_dir, date)
+                upload_entry(dbx, name, path, new_data, out_dir, date)
 
-        move_entry(dbx, entry.path_lower, out_dir=backup_dir, date=date)
+        move_entry(dbx, name, path, out_dir=backup_dir, date=date)
     except Exception as exc:
         print(f"Exception occured, moving to Error subfolder: {entry.name}")
         traceback.print_exc()
-        move_entry(dbx, entry.path_lower, out_dir=error_dir, subfolder="Errors")
+        move_entry(dbx, name, path, out_dir=error_dir, subfolder="Errors")
     finally:
         print()
 
