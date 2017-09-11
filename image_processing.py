@@ -117,7 +117,7 @@ def main(data, name, date, filetype, location, dimensions):
         data_changed = True
 
     tags = []
-    # Get geotag. Add tag to metadata object if present
+    # Get geotag.
     if location:
         geotag = get_geo_tag(
             lat=location.latitude,
@@ -131,6 +131,7 @@ def main(data, name, date, filetype, location, dimensions):
         peopletags = recognition.recognize_face(data)
         tags.extend(peopletags)
 
+    # Add tags to image data if present
     if tags:
         print(f"{name}: Tagging {tags}")
         data = add_tag(data, tags)

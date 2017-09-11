@@ -165,17 +165,19 @@ def process_entry(dbx, entry, out_dir, backup_dir, error_dir):
                 location=location,
                 dimensions=dimensions,
             )
-            date = exif_date if exif_date is not None else date
+            if exif_date is not None:
+                date = exif_date
+
             if new_data is None:
                 copy_entry(dbx, entry.path_lower, out_dir, date)
             else:
                 upload_entry(dbx, entry.path_lower, new_data, out_dir, date)
 
-        move_entry(dbx, entry.path_lower, backup_dir, date=date)
+        move_entry(dbx, entry.path_lower, out_dir=backup_dir, date=date)
     except Exception as exc:
         print(f"Exception occured, moving to Error subfolder: {entry.name}")
         traceback.print_exc()
-        move_entry(dbx, entry.path_lower, error_dir, subfolder="Errors")
+        move_entry(dbx, entry.path_lower, out_dir=error_dir, subfolder="Errors")
     finally:
         print()
 
