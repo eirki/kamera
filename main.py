@@ -33,8 +33,10 @@ folder_names = {
 
 media_extensions = (".jpg", ".jpeg", ".png", ".mp4", ".gif")
 
+dbx = dropbox.Dropbox(config.DBX_TOKEN)
 
-def db_list_new_media(dbx, dir_path):
+
+def db_list_new_media(dir_path):
     result = dbx.files_list_folder(dir_path, include_media_info=True)
 
     while True:
@@ -79,7 +81,7 @@ def parse_date(entry, location=None):
     return local_date
 
 
-def execute_transfer(dbx, transfer_func, destination):
+def execute_transfer(transfer_func, destination):
     try:
         transfer_func()
     except dropbox.exceptions.BadInputError:
@@ -98,7 +100,7 @@ def execute_transfer(dbx, transfer_func, destination):
                 raise
 
 
-def move_entry(dbx, name, path, out_dir, date=None, subfolder=None):
+def move_entry(name, path, out_dir, date=None, subfolder=None):
     if date is not None:
         destination = "/".join([out_dir, str(date.year), folder_names[date.month], name])
     elif subfolder is not None:
@@ -107,10 +109,10 @@ def move_entry(dbx, name, path, out_dir, date=None, subfolder=None):
     transfer_func = partial(dbx.files_move, from_path=path, to_path=destination)
 
     print(f"{name}: Moving to dest: {destination}")
-    execute_transfer(dbx, transfer_func, destination)
+    execute_transfer(transfer_func, destination)
 
 
-def copy_entry(dbx, name, path, out_dir, date):
+def copy_entry(name, path, out_dir, date):
     if name.lower().endswith(".mp4"):
         destination = "/".join([out_dir, "Video", str(date.year), name])
     else:
@@ -119,10 +121,10 @@ def copy_entry(dbx, name, path, out_dir, date):
     transfer_func = partial(dbx.files_copy, from_path=path, to_path=destination)
 
     print(f"{name}: Copying to dest: {destination}")
-    execute_transfer(dbx, transfer_func, destination)
+    execute_transfer(transfer_func, destination)
 
 
-def upload_entry(dbx, old_name, path, new_data, out_dir, date):
+def upload_entry(old_name, path, new_data, out_dir, date):
     filename, ext = os.path.splitext(old_name)
     new_name = filename + ".jpg"
     destination = "/".join([out_dir, str(date.year), folder_names[date.month], new_name])
@@ -130,10 +132,10 @@ def upload_entry(dbx, old_name, path, new_data, out_dir, date):
     transfer_func = partial(dbx.files_upload, f=new_data, path=destination)
 
     print(f"{new_name}: Uploading to dest: {destination}")
-    execute_transfer(dbx, transfer_func, destination)
+    execute_transfer(transfer_func, destination)
 
 
-def process_entry(dbx, entry, out_dir, backup_dir, error_dir):
+def process_entry(entry, out_dir, backup_dir, error_dir):
     print(f"{entry.name}: Processing")
     print(entry)
     try:
@@ -142,7 +144,7 @@ def process_entry(dbx, entry, out_dir, backup_dir, error_dir):
         path = entry.path_lower
         if filetype in (".mp4", ".gif"):
             date = parse_date(entry)
-            copy_entry(dbx, name, path, out_dir, date)
+            copy_entry(name, path, out_dir, date)
 
         else:
             if entry.media_info:
@@ -168,15 +170,15 @@ def process_entry(dbx, entry, out_dir, backup_dir, error_dir):
                 date = exif_date
 
             if new_data is None:
-                copy_entry(dbx, name, path, out_dir, date)
+                copy_entry(name, path, out_dir, date)
             else:
-                upload_entry(dbx, name, path, new_data, out_dir, date)
+                upload_entry(name, path, new_data, out_dir, date)
 
-        move_entry(dbx, name, path, out_dir=backup_dir, date=date)
+        move_entry(name, path, out_dir=backup_dir, date=date)
     except Exception as exc:
         print(f"Exception occured, moving to Error subfolder: {entry.name}")
         traceback.print_exc()
-        move_entry(dbx, name, path, out_dir=error_dir, subfolder="Errors")
+        move_entry(name, path, out_dir=error_dir, subfolder="Errors")
     finally:
         print()
 
@@ -184,16 +186,13 @@ def process_entry(dbx, entry, out_dir, backup_dir, error_dir):
 def main(in_dir=config.uploads_db_folder,
          out_dir=config.kamera_db_folder,
          backup_dir=config.backup_db_folder):
-    dbx = dropbox.Dropbox(config.DBX_TOKEN)
     dbx.users_get_current_account()
-
     recognition.load_encodings()
 
-    entries = db_list_new_media(dbx, in_dir)
+    entries = db_list_new_media(in_dir)
 
     for entry in entries:
         process_entry(
-            dbx=dbx,
             entry=entry,
             out_dir=out_dir,
             backup_dir=backup_dir,
