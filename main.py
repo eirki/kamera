@@ -7,6 +7,7 @@ from pprint import pprint
 import traceback
 import datetime as dt
 import pytz
+from typing import Callable, Optional
 
 from timezonefinderL import TimezoneFinder
 import dropbox
@@ -36,7 +37,7 @@ media_extensions = (".jpg", ".jpeg", ".png", ".mp4", ".gif")
 dbx = dropbox.Dropbox(config.DBX_TOKEN)
 
 
-def db_list_new_media(dir_path):
+def db_list_new_media(dir_path: str):
     result = dbx.files_list_folder(dir_path, include_media_info=True)
 
     while True:
@@ -57,7 +58,9 @@ def db_list_new_media(dir_path):
             break
 
 
-def parse_date(entry, location=None):
+def parse_date(
+        entry: dropbox.files.Metadata,
+        location: Optional[dropbox.files.GpsCoordinates] = None):
     if "burst" in entry.name.lower():
         naive_date = dt.datetime.strptime(entry.name[20:34], "%Y%m%d%H%M%S")
     else:
@@ -81,7 +84,7 @@ def parse_date(entry, location=None):
     return local_date
 
 
-def execute_transfer(transfer_func, destination):
+def execute_transfer(transfer_func: Callable, destination: str):
     try:
         transfer_func()
     except dropbox.exceptions.BadInputError:
@@ -108,7 +111,12 @@ def execute_transfer(transfer_func, destination):
                 raise
 
 
-def move_entry(name, path, out_dir, date=None, subfolder=None):
+def move_entry(
+        name: str,
+        path: str,
+        out_dir: str,
+        date: dt.datetime = None,
+        subfolder: str = None):
     if date is not None:
         destination = "/".join([out_dir, str(date.year), folder_names[date.month], name])
     elif subfolder is not None:
@@ -120,7 +128,11 @@ def move_entry(name, path, out_dir, date=None, subfolder=None):
     execute_transfer(transfer_func, destination)
 
 
-def copy_entry(name, path, out_dir, date):
+def copy_entry(
+        name: str,
+        path: str,
+        out_dir: str,
+        date: dt.datetime):
     if name.lower().endswith(".mp4"):
         destination = "/".join([out_dir, "Video", str(date.year), name])
     else:
@@ -132,7 +144,12 @@ def copy_entry(name, path, out_dir, date):
     execute_transfer(transfer_func, destination)
 
 
-def upload_entry(old_name, path, new_data, out_dir, date):
+def upload_entry(
+        old_name: str,
+        path: str,
+        new_data: str,
+        out_dir: str,
+        date: dt.datetime):
     filename, ext = os.path.splitext(old_name)
     new_name = filename + ".jpg"
     destination = "/".join([out_dir, str(date.year), folder_names[date.month], new_name])
@@ -143,7 +160,11 @@ def upload_entry(old_name, path, new_data, out_dir, date):
     execute_transfer(transfer_func, destination)
 
 
-def process_entry(entry, out_dir, backup_dir, error_dir):
+def process_entry(
+        entry,
+        out_dir: str,
+        backup_dir: str,
+        error_dir: str):
     print(f"{entry.name}: Processing")
     print(entry)
     try:
@@ -191,9 +212,10 @@ def process_entry(entry, out_dir, backup_dir, error_dir):
         print()
 
 
-def main(in_dir=config.uploads_db_folder,
-         out_dir=config.kamera_db_folder,
-         backup_dir=config.backup_db_folder):
+def main(
+        in_dir: str = config.uploads_db_folder,
+        out_dir: str = config.kamera_db_folder,
+        backup_dir: str = config.backup_db_folder):
     dbx.users_get_current_account()
     recognition.load_encodings()
 
