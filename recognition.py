@@ -18,6 +18,9 @@ Match = namedtuple("Match", ["distance", "name"])
 
 
 def load_encodings():
+    """
+    Opens pictures saved in /faces, encodes face in picture, adds encodings to person-tuple
+    """
     if face_recognition is None:
         return
 
@@ -73,6 +76,8 @@ def _get_best_match_for_each_face(all_facial_matches):
 
     Args:
         all_facial_matches: list of list of matches
+
+    Returns
         recognized_people: list of names, one name for each list of match_lists
     """
     recognized_people = []
