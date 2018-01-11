@@ -5,6 +5,8 @@ import json
 from io import BytesIO
 from collections import namedtuple
 
+from typing import List
+
 try:
     import face_recognition
     import numpy as np
@@ -48,7 +50,10 @@ def load_encodings():
             person.encodings.append(encoding)
 
 
-def _match_face_with_known_people(known_people, unknown_encoding):
+def _match_face_with_known_people(
+        known_people: List[config.Person],
+        unknown_encoding: np.array
+        ) -> List[Match]:
     """
     Returns possible matches for a single unknown face encoding
 
@@ -70,7 +75,7 @@ def _match_face_with_known_people(known_people, unknown_encoding):
     return match_list
 
 
-def _get_best_match_for_each_face(all_facial_matches):
+def _get_best_match_for_each_face(all_facial_matches: List[List[Match]]) -> List[str]:
     """
     Returns list of best matches for multiple facial encodings, given a list of possible matches
 
@@ -95,7 +100,7 @@ def _get_best_match_for_each_face(all_facial_matches):
     return recognized_people
 
 
-def recognize_face(img_data):
+def recognize_face(img_data: bytes) -> List[str]:
     loaded_img = face_recognition.load_image_file(BytesIO(img_data))
     unknown_encodings = face_recognition.face_encodings(loaded_img)
 

@@ -11,11 +11,14 @@ import piexif
 from geopy.distance import great_circle
 from resizeimage import resizeimage
 
+from typing import List, Union, Optional, Tuple
+import dropbox
+
 import config
 import recognition
 
 
-def get_closest_city(lat, lng):
+def get_closest_city(lat: float, lng: float) -> Optional[config.City]:
     """Return city if image taken within 50 km from center of city"""
     distances = [
         (great_circle((city.lat, city.lng), (lat, lng)).km, city)
@@ -25,7 +28,7 @@ def get_closest_city(lat, lng):
     return closest_city if distance < 50 else None
 
 
-def get_closest_location(lat, lng, city):
+def get_closest_location(lat: float, lng: float, city: config.City) -> Optional[config.Location]:
     """Return closest location if image taken within 100 m"""
     if not city.locations:
         return None
@@ -37,7 +40,7 @@ def get_closest_location(lat, lng, city):
     return closest_location if distance < 100 else None
 
 
-def get_geo_tag(lat, lng):
+def get_geo_tag(lat: float, lng: float) -> str:
     tagstring = None
     if lat and lng:
         city = get_closest_city(lat, lng)
@@ -50,7 +53,7 @@ def get_geo_tag(lat, lng):
     return tagstring
 
 
-def convert_png_to_jpg(data):
+def convert_png_to_jpg(data: bytes) -> bytes:
     old_data = BytesIO(data)
     new_data = BytesIO()
     Image.open(old_data).save(new_data, "JPEG")
@@ -58,7 +61,7 @@ def convert_png_to_jpg(data):
     return data
 
 
-def resize(data):
+def resize(data: bytes) -> bytes:
     img = Image.open(BytesIO(data))
     landscape = True if img.width > img.height else False
     if landscape:
@@ -72,12 +75,12 @@ def resize(data):
     return data
 
 
-def add_date(date, metadata):
+def add_date(date: dt.datetime, metadata: dict):
     datestring = date.strftime("%Y:%m:%d %H:%M:%S")
     metadata["Exif"][piexif.ExifIFD.DateTimeOriginal] = datestring
 
 
-def add_tag(data, tags):
+def add_tag(data: bytes, tags: List[str]) -> bytes:
     # metadata["0th"][piexif.ImageIFD.XPKeywords] = tagstring.encode("utf-16")
     args = [config.exifpath]
     if sys.platform == "win32":
@@ -90,7 +93,13 @@ def add_tag(data, tags):
     return new_data
 
 
-def main(data, name, date, filetype, location, dimensions):
+def main(data: bytes,
+         name: str,
+         date: dt.datetime,
+         filetype: str,
+         location: Union[dropbox.files.GpsCoordinates, None],
+         dimensions: Union[dropbox.files.Dimensions, None]
+         ) -> Tuple[bytes, Union[dt.datetime, None]]:
     data_changed = False
 
     # Convert image from PNG to JPG, put data into BytesIO obj

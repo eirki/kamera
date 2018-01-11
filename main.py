@@ -7,10 +7,11 @@ from pprint import pprint
 import traceback
 import datetime as dt
 import pytz
-from typing import Callable, Optional
 
 from timezonefinderL import TimezoneFinder
 import dropbox
+
+from typing import Callable, Optional
 
 import config
 import image_processing
@@ -60,7 +61,8 @@ def db_list_new_media(dir_path: str):
 
 def parse_date(
         entry: dropbox.files.Metadata,
-        location: Optional[dropbox.files.GpsCoordinates] = None):
+        location: Optional[dropbox.files.GpsCoordinates] = None
+        ) -> dt.datetime:
     if "burst" in entry.name.lower():
         naive_date = dt.datetime.strptime(entry.name[20:34], "%Y%m%d%H%M%S")
     else:
@@ -147,7 +149,7 @@ def copy_entry(
 def upload_entry(
         old_name: str,
         path: str,
-        new_data: str,
+        new_data: bytes,
         out_dir: str,
         date: dt.datetime):
     filename, ext = os.path.splitext(old_name)
