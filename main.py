@@ -89,12 +89,20 @@ def execute_transfer(transfer_func, destination):
         dbx.files_create_folder(destination)
         transfer_func()
     except dropbox.exceptions.ApiError as Exception:
-            if (isinstance(Exception.error, dropbox.files.RelocationError) and
-               isinstance(Exception.error.get_to().get_conflict(), dropbox.files.WriteConflictError)):
+            if (
+                isinstance(Exception.error, dropbox.files.RelocationError) and
+                isinstance(
+                    Exception.error.get_to().get_conflict(),
+                    dropbox.files.WriteConflictError)
+            ):
                 print(f"Skipping copy, file already present: {destination}")
 
-            elif (isinstance(Exception.error, dropbox.files.UploadError) and
-                  isinstance(Exception.error.get_path().reason.get_conflict(), dropbox.files.WriteConflictError)):
+            elif (
+                isinstance(Exception.error, dropbox.files.UploadError) and
+                isinstance(
+                    Exception.error.get_path().reason.get_conflict(),
+                    dropbox.files.WriteConflictError)
+            ):
                 print(f"Skipping move, file already present: {destination}")
             else:
                 raise
