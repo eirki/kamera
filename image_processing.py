@@ -91,7 +91,7 @@ def add_tag(data, tags):
 
 
 def main(data, name, date, filetype, location, dimensions):
-    data_changed = None
+    data_changed = False
 
     # Convert image from PNG to JPG, put data into BytesIO obj
     if filetype == "png":
