@@ -1,17 +1,18 @@
 #! /usr/bin/env python3.6
 # coding: utf-8
-import os
 import json
 from io import BytesIO
 from collections import namedtuple
 
 from typing import List
+from pathlib import Path
 
 try:
     import face_recognition
-    import numpy as np
+    from numpy import array as np_array
 except ImportError:
     face_recognition = None
+    np_array = None
     print("Unable to import face_recognition.")
 
 import config
@@ -19,7 +20,7 @@ import config
 Match = namedtuple("Match", ["distance", "name"])
 
 
-def load_encodings():
+def load_encodings(home_path: Path):
     """
     Opens pictures saved in /faces, encodes face in picture, adds encodings to person-tuple
     """
@@ -27,32 +28,29 @@ def load_encodings():
         return
 
     for person in config.people:
-        path = os.path.join(config.home, "faces", person.name)
-        imgs = os.listdir(path)
-        for img in imgs:
-            img_path = os.path.join(path, img)
-            root, ext = os.path.splitext(img_path)
-            json_path = root + ".json"
-            if os.path.exists(json_path):
-                with open(json_path) as j:
-                    encoding = np.array(json.load(j))
+        path = home_path / "faces" / person.name
+        for img_path in path.iterdir():
+            json_path = img_path.with_suffix(".json")
+            if json_path.exists():
+                with json_path.open() as j:
+                    encoding = np_array(json.load(j))
             else:
                 data = face_recognition.load_image_file(img_path)
                 encodings = face_recognition.face_encodings(data)
                 if len(encodings) == 0:
-                    print(f"Warning: No encodings found: {img}")
+                    print(f"Warning: No encodings found: {img_path}")
                     continue
                 elif len(encodings) > 1:
-                    raise Exception(f"Multiple encodings found: {img}")
+                    raise Exception(f"Multiple encodings found: {img_path}")
                 encoding = encodings[0]
-                with open(json_path, "w") as j:
+                with json_path.open("w") as j:
                     json.dump(encoding.tolist(), j)
             person.encodings.append(encoding)
 
 
 def _match_face_with_known_people(
         known_people: List[config.Person],
-        unknown_encoding: np.array
+        unknown_encoding: np_array
         ) -> List[Match]:
     """
     Returns possible matches for a single unknown face encoding

@@ -11,6 +11,7 @@ import piexif
 from geopy.distance import great_circle
 from resizeimage import resizeimage
 
+from pathlib import Path
 from typing import List, Union, Optional, Tuple
 import dropbox
 
@@ -82,7 +83,7 @@ def add_date(date: dt.datetime, metadata: dict):
 
 def add_tag(data: bytes, tags: List[str]) -> bytes:
     # metadata["0th"][piexif.ImageIFD.XPKeywords] = tagstring.encode("utf-16")
-    args = [config.exifpath]
+    args = [str(config.exifpath)]
     if sys.platform == "win32":
         args.append("-L")
     args.extend([f"-xmp:Subject={tag}" for tag in tags])
@@ -94,16 +95,16 @@ def add_tag(data: bytes, tags: List[str]) -> bytes:
 
 
 def main(data: bytes,
-         name: str,
+         filepath: Path,
          date: dt.datetime,
-         filetype: str,
          location: Union[dropbox.files.GpsCoordinates, None],
          dimensions: Union[dropbox.files.Dimensions, None]
          ) -> Tuple[bytes, Union[dt.datetime, None]]:
     data_changed = False
+    name = filepath.stem
 
     # Convert image from PNG to JPG, put data into BytesIO obj
-    if filetype == "png":
+    if filepath.suffix.lower() == ".png":
         print(f"{name}: Converting to JPG")
         data = convert_png_to_jpg(data)
         data_changed = True

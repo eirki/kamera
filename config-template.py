@@ -2,6 +2,7 @@
 # coding: utf-8
 
 from collections import namedtuple
+from pathlib import Path
 
 import pytz
 
@@ -9,15 +10,15 @@ app_id = ""
 
 DBX_TOKEN = ""
 
-home = ""
+home = Path()
 
-exifpath = ""
+exifpath = Path()
 
-uploads_db_folder = "/Camera Uploads"
+uploads_db_folder = Path("/Camera Uploads")
 
-kamera_db_folder = "/kamera"
+kamera_db_folder = Path("/kamera")
 
-backup_db_folder = "/backup"
+backup_db_folder = Path("/backup")
 
 City = namedtuple("City", ["name", "lat", "lng", "locations"])
 Location = namedtuple("Location", ["name", "lat", "lng"])
