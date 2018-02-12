@@ -129,7 +129,7 @@ def move_entry(
         to_path=destination.as_posix()
     )
 
-    print(f"{from_path.name}: Moving to dest: {destination}")
+    print(f"{from_path.stem}: Moving to dest: {destination}")
     execute_transfer(transfer_func, destination)
 
 
@@ -148,7 +148,7 @@ def copy_entry(
         to_path=destination.as_posix()
     )
 
-    print(f"{from_path.name}: Copying to dest: {destination}")
+    print(f"{from_path.stem}: Copying to dest: {destination}")
     execute_transfer(transfer_func, destination)
 
 
@@ -162,7 +162,7 @@ def upload_entry(
 
     transfer_func = partial(dbx.files_upload, f=new_data, path=destination.as_posix())
 
-    print(f"{new_name}: Uploading to dest: {destination}")
+    print(f"{destination.stem}: Uploading to dest: {destination}")
     execute_transfer(transfer_func, destination)
 
 
