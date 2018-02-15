@@ -137,10 +137,7 @@ def copy_entry(
         from_path: Path,
         out_dir: Path,
         date: dt.datetime):
-    if from_path.suffix.lower() == ".mp4":
-        destination = out_dir / "Video" / str(date.year) / from_path.name
-    else:
-        destination = out_dir / str(date.year) / folder_names[date.month] / from_path.name
+    destination = out_dir / str(date.year) / folder_names[date.month] / from_path.name
 
     transfer_func = partial(
         dbx.files_copy,
