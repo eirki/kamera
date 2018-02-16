@@ -31,7 +31,7 @@ folder_names = {
     11: "11 (November)",
     12: "12 (Desember)",
 }
-
+times = []
 
 media_extensions = (".jpg", ".jpeg", ".png", ".mp4", ".gif")
 
@@ -169,6 +169,8 @@ def process_entry(
         backup_dir: Path,
         error_dir: Path):
     print(f"{entry.name}: Processing")
+    start_time = dt.datetime.now()
+    print(f"{start_time} | {entry.name}: Processing")
     print(entry)
     try:
         filepath = Path(entry.path_display)
@@ -209,6 +211,10 @@ def process_entry(
         traceback.print_exc()
         move_entry(filepath, out_dir=error_dir, subfolder="Errors")
     finally:
+        end_time = dt.datetime.now()
+        duration = end_time - start_time
+        print(f"{end_time} | {entry.name}, duration: {duration}")
+        times.append(duration.seconds)
         print()
 
 
@@ -216,6 +222,8 @@ def main(
         in_dir: Path = config.uploads_db_folder,
         out_dir: Path = config.kamera_db_folder,
         backup_dir: Path = config.backup_db_folder):
+    start_time = dt.datetime.now()
+
     dbx.users_get_current_account()
     recognition.load_encodings(home_path=config.home)
 
@@ -228,6 +236,10 @@ def main(
             backup_dir=backup_dir,
             error_dir=in_dir
         )
+    print(sorted(times))
+    end_time = dt.datetime.now()
+    duration = end_time - start_time
+    print(f"{end_time} | Total duration: {duration}")
 
 
 if __name__ == "__main__":
