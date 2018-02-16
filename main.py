@@ -7,6 +7,7 @@ from pprint import pprint
 import traceback
 import datetime as dt
 import pytz
+import asyncio
 
 from timezonefinderL import TimezoneFinder
 import dropbox
@@ -86,13 +87,13 @@ def parse_date(
     return local_date
 
 
-def execute_transfer(transfer_func: Callable, destination: Path):
+async def execute_transfer(transfer_func: Callable, destination: Path, loop):
     try:
-        transfer_func()
+        await loop.run_in_executor(None, transfer_func)
     except dropbox.exceptions.BadInputError:
         print(f"Making folder: {destination}")
         dbx.files_create_folder(destination.as_posix())
-        transfer_func()
+        await loop.run_in_executor(None, transfer_func)
     except dropbox.exceptions.ApiError as Exception:
             if (
                 isinstance(Exception.error, dropbox.files.RelocationError) and
@@ -113,11 +114,12 @@ def execute_transfer(transfer_func: Callable, destination: Path):
                 raise
 
 
-def move_entry(
+async def move_entry(
         from_path: Path,
         out_dir: Path,
         date: dt.datetime = None,
-        subfolder: str = None):
+        subfolder: str = None,
+        loop=None):
     if date is not None:
         destination = out_dir / str(date.year) / folder_names[date.month] / from_path.name
     elif subfolder is not None:
@@ -130,13 +132,14 @@ def move_entry(
     )
 
     print(f"{from_path.stem}: Moving to dest: {destination}")
-    execute_transfer(transfer_func, destination)
+    await execute_transfer(transfer_func, destination, loop)
 
 
-def copy_entry(
+async def copy_entry(
         from_path: Path,
         out_dir: Path,
-        date: dt.datetime):
+        date: dt.datetime,
+        loop):
     destination = out_dir / str(date.year) / folder_names[date.month] / from_path.name
 
     transfer_func = partial(
@@ -146,29 +149,30 @@ def copy_entry(
     )
 
     print(f"{from_path.stem}: Copying to dest: {destination}")
-    execute_transfer(transfer_func, destination)
+    await execute_transfer(transfer_func, destination, loop)
 
 
-def upload_entry(
+async def upload_entry(
         from_path: Path,
         new_data: bytes,
         out_dir: Path,
-        date: dt.datetime):
+        date: dt.datetime,
+        loop):
     new_name = from_path.with_suffix(".jpg").name
     destination = out_dir / str(date.year) / folder_names[date.month] / new_name
 
     transfer_func = partial(dbx.files_upload, f=new_data, path=destination.as_posix())
 
     print(f"{destination.stem}: Uploading to dest: {destination}")
-    execute_transfer(transfer_func, destination)
+    await execute_transfer(transfer_func, destination, loop)
 
 
-def process_entry(
+async def process_entry(
         entry,
         out_dir: Path,
         backup_dir: Path,
-        error_dir: Path):
-    print(f"{entry.name}: Processing")
+        error_dir: Path,
+        loop):
     start_time = dt.datetime.now()
     print(f"{start_time} | {entry.name}: Processing")
     print(entry)
@@ -176,7 +180,7 @@ def process_entry(
         filepath = Path(entry.path_display)
         if filepath.suffix.lower() in (".mp4", ".gif"):
             date = parse_date(entry)
-            copy_entry(filepath, out_dir, date)
+            await copy_entry(filepath, out_dir, date, loop=loop)
 
         else:
             if entry.media_info:
@@ -189,7 +193,10 @@ def process_entry(
                 location = None
                 date = parse_date(entry)
 
-            orig_data, response = dbx.files_download(filepath.as_posix())
+            orig_data, response = await loop.run_in_executor(
+                None, dbx.files_download, filepath.as_posix()
+            )
+
             new_data, exif_date = image_processing.main(
                 data=response.raw.data,
                 filepath=filepath,
@@ -201,15 +208,15 @@ def process_entry(
                 date = exif_date
 
             if new_data is None:
-                copy_entry(filepath, out_dir, date)
+                await copy_entry(filepath, out_dir, date, loop=loop)
             else:
-                upload_entry(filepath, new_data, out_dir, date)
+                await upload_entry(filepath, new_data, out_dir, date, loop=loop)
 
-        move_entry(filepath, out_dir=backup_dir, date=date)
+        await move_entry(filepath, out_dir=backup_dir, date=date, loop=loop)
     except Exception as exc:
         print(f"Exception occured, moving to Error subfolder: {filepath.name}")
         traceback.print_exc()
-        move_entry(filepath, out_dir=error_dir, subfolder="Errors")
+        await move_entry(filepath, out_dir=error_dir, subfolder="Errors", loop=loop)
     finally:
         end_time = dt.datetime.now()
         duration = end_time - start_time
@@ -229,13 +236,20 @@ def main(
 
     entries = db_list_new_media(in_dir)
 
-    for entry in entries:
-        process_entry(
-            entry=entry,
-            out_dir=out_dir,
-            backup_dir=backup_dir,
-            error_dir=in_dir
+    loop = asyncio.get_event_loop()
+    tasks = [
+        loop.create_task(
+            process_entry(entry=entry,
+                          out_dir=out_dir,
+                          backup_dir=backup_dir,
+                          error_dir=in_dir,
+                          loop=loop)
         )
+        for entry in entries
+     ]
+
+    loop.run_until_complete(asyncio.wait(tasks))
+    loop.close()
     print(sorted(times))
     end_time = dt.datetime.now()
     duration = end_time - start_time
