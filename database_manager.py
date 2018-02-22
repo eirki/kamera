@@ -53,25 +53,6 @@ def lock(cursor: Cursor, timeout: int=1):
         raise RuntimeError(f"Could not obtain named lock {config.app_id} within {timeout} seconds")
 
 
-def get_entry_from_queue(cursor: Cursor) -> Optional[str]:
-    cursor.execute("SELECT name FROM entries_waiting")
-    entry = cursor.fetchone()
-    print(entry)
-    if entry is None:
-        return None
-    sql_cmd = "DELETE FROM entries_waiting where name = %(name)s"
-    sql_data = {"name": entry.name}
-    cursor.execute(sql_cmd, sql_data)
-    return entry
-
-
-def populate_queue(cursor: Cursor, entries: List[dropbox.files.Metadata]):
-    for entry in entries:
-        sql_cmd = "INSERT INTO entries_waiting (name) VALUES (%(name)s)"
-        sql_data = {"name": entry.name}
-        cursor.execute(sql_cmd, sql_data)
-
-
 def check_entry_in_processing_list(cursor: Cursor, entry: dropbox.files.Metadata) -> bool:
     cursor.execute("SELECT 1 FROM entries_processing WHERE name = %(name)s", {"name": entry.name})
     entry = cursor.fetchone()

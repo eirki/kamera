@@ -39,6 +39,7 @@ times = []
 media_extensions = (".jpg", ".jpeg", ".png", ".mp4", ".gif")
 
 dbx = dropbox.Dropbox(config.DBX_TOKEN)
+# recognition.load_encodings(home_path=config.home)
 
 app = Flask(__name__)
 
@@ -70,57 +71,25 @@ def verify():
     return request.args.get('challenge')
 
 
-@app.route('/kamera', methods=['POST'])
-def webhook() -> str:
-    signature = request.headers.get('X-Dropbox-Signature')
-    print(signature)
-    print(request.data)
-    if not hmac.compare_digest(signature, hmac.new(config.APP_SECRET, request.data, sha256).hexdigest()):
-        print(abort)
-        abort(403)
-    # user = json.loads(request.data)['list_folder']['accounts']
-    cur = get_db().cursor()
-    with db.lock(cur):
-        entry = db.get_entry_from_queue(cur)
-        if entry is None:
-            entries = dbx_get_new_media(cur)
-            if len(entries) == 1:
-                entry = entries[0]
-            if len(entries) > 1:
-                entry = entries.pop()
-                db.populate_queue(cur, entries)
-            elif len(entries) == 0:
-                print("No entries found")
-                return ""
-        db.add_entry_to_processing_list(cur, entry)
-    process_entry(entry)
-    db.remove_entry_from_processing_list(cur, entry)
-    return ""
-
-
-def dbx_get_new_media(cur: Cursor) -> List[dropbox.files.Metadata]:
+def dbx_list_media(cur: Cursor) -> dropbox.files.Metadata:
     app_path = Path("/Apps") / "fotokamera" / "Camera Uploads"
 
     result = dbx.files_list_folder(app_path.as_posix())
-    entries = []
     while True:
         pprint(result)
         print(len(result.entries))
         for entry in result.entries:
             # Ignore deleted files, folders
-            if not isinstance(entry, dropbox.files.FileMetadata):
-                continue
-            processing = db.check_entry_in_processing_list(cur, entry)
-            if processing:
-                continue
-            entries.append(entry)
+            if (entry.path_lower.endswith(media_extensions) and
+                    isinstance(entry, dropbox.files.FileMetadata)):
+                yield entry
+
 
         # Repeat only if there's more to do
         if result.has_more:
             result = dbx.files_list_folder_continue(result.cursor)
         else:
             break
-    return entries
 
 
 def parse_date(
@@ -282,29 +251,33 @@ def process_entry(
         print()
 
 
-def main(
-        in_dir: Path = config.uploads_db_folder,
-        out_dir: Path = config.kamera_db_folder,
-        backup_dir: Path = config.backup_db_folder):
-    start_time = dt.datetime.now()
 
-    dbx.users_get_current_account()
-    recognition.load_encodings(home_path=config.home)
+@app.route('/kamera', methods=['POST'])
+def webhook() -> str:
+    signature = request.headers.get('X-Dropbox-Signature')
+    print(signature)
+    print(request.data)
+    if not hmac.compare_digest(signature, hmac.new(config.APP_SECRET, request.data, sha256).hexdigest()):
+        print(abort)
+        abort(403)
 
-    entries = db_list_new_media(in_dir)
-
-    for entry in entries:
+    cur = get_db().cursor()
+    with db.lock(cur):
+        for entry in dbx_list_media(cur):
+            processing = db.check_entry_in_processing_list(cur, entry)
+            if not processing:
+                break
+        else:
+            print("No entries found")
+            return ""
+        db.add_entry_to_processing_list(cur, entry)
+    try:
         process_entry(
             entry=entry,
-            out_dir=out_dir,
-            backup_dir=backup_dir,
-            error_dir=in_dir
+            out_dir=config.kamera_db_folder,
+            backup_dir=config.backup_db_folder,
+            error_dir=config.uploads_db_folder
         )
-    print(sorted(times))
-    end_time = dt.datetime.now()
-    duration = end_time - start_time
-    print(f"{end_time} | Total duration: {duration}")
-
-
-if __name__ == "__main__":
-    main()
+    finally:
+        db.remove_entry_from_processing_list(cur, entry)
+    return ""
