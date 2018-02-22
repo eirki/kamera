@@ -6,17 +6,20 @@ from pathlib import Path
 from pprint import pprint
 import traceback
 import datetime as dt
-import pytz
+from hashlib import sha256
+import hmac
 
+import pytz
 from timezonefinderL import TimezoneFinder
 import dropbox
+from flask import Flask, request, abort, g
 
-from typing import Callable, Optional
+from typing import Callable, Optional, List
 
 import config
 import image_processing
 import recognition
-
+import database_manager as db
 folder_names = {
     1: "01 (Januar)",
     2: "02 (Februar)",
@@ -37,26 +40,87 @@ media_extensions = (".jpg", ".jpeg", ".png", ".mp4", ".gif")
 
 dbx = dropbox.Dropbox(config.DBX_TOKEN)
 
+app = Flask(__name__)
 
-def db_list_new_media(dir_path: Path):
-    result = dbx.files_list_folder(dir_path.as_posix(), include_media_info=True)
 
+def get_db():
+    db_connection = getattr(g, '_database', None)
+    if db_connection is None:
+        db_connection = db.connect()
+        g._database = db_connection
+    return db_connection
+
+
+@app.teardown_appcontext
+def close_connection(exception):
+    db_connection = getattr(g, '_database', None)
+    if db_connection is not None:
+        db_connection.close()
+
+
+@app.route('/')
+def hello_world():
+    return f'Hello'
+
+
+@app.route('/kamera', methods=['GET'])
+def verify():
+    '''Respond to the webhook verification (GET request) by echoing back the challenge parameter.'''
+
+    return request.args.get('challenge')
+
+
+@app.route('/kamera', methods=['POST'])
+def webhook() -> str:
+    signature = request.headers.get('X-Dropbox-Signature')
+    print(signature)
+    print(request.data)
+    if not hmac.compare_digest(signature, hmac.new(config.APP_SECRET, request.data, sha256).hexdigest()):
+        print(abort)
+        abort(403)
+    # user = json.loads(request.data)['list_folder']['accounts']
+    cur = get_db().cursor()
+    with db.lock(cur):
+        entry = db.get_entry_from_queue(cur)
+        if entry is None:
+            entries = dbx_get_new_media(cur)
+            if len(entries) == 1:
+                entry = entries[0]
+            if len(entries) > 1:
+                entry = entries.pop()
+                db.populate_queue(cur, entries)
+            elif len(entries) == 0:
+                print("No entries found")
+                return ""
+        db.add_entry_to_processing_list(cur, entry)
+    process_entry(entry)
+    db.remove_entry_from_processing_list(cur, entry)
+    return ""
+
+
+def dbx_get_new_media(cur: Cursor) -> List[dropbox.files.Metadata]:
+    app_path = Path("/Apps") / "fotokamera" / "Camera Uploads"
+
+    result = dbx.files_list_folder(app_path.as_posix())
+    entries = []
     while True:
         pprint(result)
-        print()
+        print(len(result.entries))
         for entry in result.entries:
-            if (entry.path_lower.endswith(media_extensions) and
-                    isinstance(entry, dropbox.files.FileMetadata)):
-                yield entry
-
-        # Update cursor
-        cursor = result.cursor
+            # Ignore deleted files, folders
+            if not isinstance(entry, dropbox.files.FileMetadata):
+                continue
+            processing = db.check_entry_in_processing_list(cur, entry)
+            if processing:
+                continue
+            entries.append(entry)
 
         # Repeat only if there's more to do
         if result.has_more:
-            result = dbx.files_list_folder_continue(cursor)
+            result = dbx.files_list_folder_continue(result.cursor)
         else:
             break
+    return entries
 
 
 def parse_date(

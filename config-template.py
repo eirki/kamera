@@ -10,6 +10,11 @@ app_id = ""
 
 DBX_TOKEN = ""
 
+db_host = ""
+db_user = ""
+db_passwd = ""
+db_name = ""
+
 home = Path()
 
 exifpath = Path()
