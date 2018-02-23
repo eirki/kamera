@@ -13,6 +13,7 @@ import pytz
 from timezonefinderL import TimezoneFinder
 import dropbox
 from flask import Flask, request, abort, g
+import uwsgi
 
 from typing import Callable, Optional, List
 from MySQLdb.cursors import Cursor
@@ -251,6 +252,16 @@ def process_entry(
         print()
 
 
+def get_entry(cur: Cursor) -> Optional[dropbox.files.Metadata]:
+    for entry in dbx_list_media(cur, dir=config.uploads_db_folder):
+        processing = db.check_entry_in_processing_list(cur, entry)
+        if not processing:
+            break
+    else:
+        return None
+    db.add_entry_to_processing_list(cur, entry)
+    return entry
+
 
 @app.route('/kamera', methods=['POST'])
 def webhook() -> str:
@@ -262,15 +273,16 @@ def webhook() -> str:
         abort(403)
 
     cur = get_db().cursor()
-    with db.lock(cur):
-        for entry in dbx_list_media(cur, dir=config.uploads_db_folder):
-            processing = db.check_entry_in_processing_list(cur, entry)
-            if not processing:
-                break
-        else:
-            print("No entries found")
-            return ""
-        db.add_entry_to_processing_list(cur, entry)
+    uwsgi.lock()
+    try:
+        entry = get_entry(cur)
+    finally:
+        uwsgi.unlock()
+
+    if entry is None:
+        print("No entries found")
+        return ""
+
     try:
         process_entry(
             entry=entry,

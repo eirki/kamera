@@ -1,14 +1,13 @@
 #! python3.6
 # coding: utf-8
-import contextlib
-
 import MySQLdb
 from MySQLdb.cursors import Cursor
 
 import config
 
-from typing import Optional, List
 import dropbox
+
+from typing import Set
 
 
 class LoggingCursor(Cursor):
@@ -31,26 +30,6 @@ def connect():
         cursorclass=LoggingCursor
     )
     return connection
-
-
-@contextlib.contextmanager
-def lock(cursor: Cursor, timeout: int=1):
-    """Get a named mysql lock on a DB session
-    http://arr.gr/blog/2016/05/mysql-named-locks-in-python-context-managers/
-    """
-    cursor.execute(
-        "SELECT GET_LOCK(%(lock_name)s, %(timeout)s)",
-        {"lock_name": config.app_id, "timeout": timeout}
-    )
-    lock = cursor.fetchone()[0]
-    print(f"lock: {lock}")
-    if lock:
-        try:
-            yield
-        finally:
-            cursor.execute("SELECT RELEASE_LOCK(%(name)s)", {"name": config.app_id})
-    else:
-        raise RuntimeError(f"Could not obtain named lock {config.app_id} within {timeout} seconds")
 
 
 def check_entry_in_processing_list(cursor: Cursor, entry: dropbox.files.Metadata) -> bool:
