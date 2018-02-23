@@ -15,6 +15,7 @@ import dropbox
 from flask import Flask, request, abort, g
 
 from typing import Callable, Optional, List
+from MySQLdb.cursors import Cursor
 
 import config
 import image_processing
@@ -39,7 +40,7 @@ times = []
 media_extensions = (".jpg", ".jpeg", ".png", ".mp4", ".gif")
 
 dbx = dropbox.Dropbox(config.DBX_TOKEN)
-# recognition.load_encodings(home_path=config.home)
+recognition.load_encodings(home_path=config.home)
 
 app = Flask(__name__)
 
@@ -71,10 +72,9 @@ def verify():
     return request.args.get('challenge')
 
 
-def dbx_list_media(cur: Cursor) -> dropbox.files.Metadata:
-    app_path = Path("/Apps") / "fotokamera" / "Camera Uploads"
+def dbx_list_media(cur: Cursor, dir: Path) -> dropbox.files.Metadata:
 
-    result = dbx.files_list_folder(app_path.as_posix())
+    result = dbx.files_list_folder(dir.as_posix())
     while True:
         pprint(result)
         print(len(result.entries))
@@ -263,7 +263,7 @@ def webhook() -> str:
 
     cur = get_db().cursor()
     with db.lock(cur):
-        for entry in dbx_list_media(cur):
+        for entry in dbx_list_media(cur, dir=config.uploads_db_folder):
             processing = db.check_entry_in_processing_list(cur, entry)
             if not processing:
                 break
@@ -276,7 +276,7 @@ def webhook() -> str:
             entry=entry,
             out_dir=config.kamera_db_folder,
             backup_dir=config.backup_db_folder,
-            error_dir=config.uploads_db_folder
+            error_dir=config.errors_db_folder
         )
     finally:
         db.remove_entry_from_processing_list(cur, entry)

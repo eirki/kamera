@@ -19,11 +19,14 @@ home = Path()
 
 exifpath = Path()
 
-uploads_db_folder = Path("/Camera Uploads")
+uploads_db_folder = Path("/Apps") / "fotokamera" / "Uploads"
 
-kamera_db_folder = Path("/kamera")
+kamera_db_folder = Path("/Apps") / "fotokamera"
 
-backup_db_folder = Path("/backup")
+backup_db_folder = Path("/Apps") / "fotokamera" / "Backup"
+
+errors_db_folder = Path("/Apps") / "fotokamera" / "Error"
+
 
 City = namedtuple("City", ["name", "lat", "lng", "locations"])
 Location = namedtuple("Location", ["name", "lat", "lng"])
