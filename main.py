@@ -224,7 +224,7 @@ def main():
             if not media_list:
                 time.sleep(5)
                 continue
-            entries = dbx.dbx_list_entries()
+            entries = dbx_list_entries()
             for entry in entries:
                 try:
                     process_entry(
