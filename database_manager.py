@@ -32,20 +32,20 @@ def connect():
     return connection
 
 
-def add_entry_to_processing_list(cursor: Cursor, entry: dropbox.files.Metadata):
+def add_entry_to_media_list(cursor: Cursor, media: dropbox.files.Metadata):
     sql_cmd = "INSERT INTO entries_processing (name) VALUES (%(name)s)"
-    sql_data = {"name": entry.name}
+    sql_data = {"name": media.name}
     cursor.execute(sql_cmd, sql_data)
 
 
-def get_processing_list(cursor: Cursor) -> Set[str]:
+def get_media_list(cursor: Cursor) -> Set[str]:
     cursor.execute("SELECT * FROM entries_processing")
-    processing_list = set(name[0] for name in cursor.fetchall())
-    print(f"proc: {processing_list}")
-    return processing_list
+    media_list = set(name[0] for name in cursor.fetchall())
+    print(f"media: {media_list}")
+    return media_list
 
 
-def remove_entry_from_processing_list(cursor: Cursor, entry: dropbox.files.Metadata):
+def remove_entry_from_media_list(cursor: Cursor, media: dropbox.files.Metadata):
     sql_cmd = "DELETE FROM entries_processing where name = %(name)s"
-    sql_data = {"name": entry.name}
+    sql_data = {"name": media.name}
     cursor.execute(sql_cmd, sql_data)

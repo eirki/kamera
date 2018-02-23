@@ -1,27 +1,24 @@
 #! /usr/bin/env python3.6
 # coding: utf-8
-
 from functools import partial
 from pathlib import Path
-from pprint import pprint
 import traceback
 import datetime as dt
-from hashlib import sha256
-import hmac
+import time
 
 import pytz
 from timezonefinderL import TimezoneFinder
 import dropbox
-from flask import Flask, request, abort, g
-import uwsgi
 
 from typing import Callable, Optional
-from MySQLdb.cursors import Cursor
 
 import config
 import image_processing
 import recognition
-import database_manager as db
+import database_manager
+
+media_extensions = (".jpg", ".jpeg", ".png", ".mp4", ".gif")
+
 folder_names = {
     1: "01 (Januar)",
     2: "02 (Februar)",
@@ -36,48 +33,17 @@ folder_names = {
     11: "11 (November)",
     12: "12 (Desember)",
 }
-times = []
-
-media_extensions = (".jpg", ".jpeg", ".png", ".mp4", ".gif")
 
 dbx = dropbox.Dropbox(config.DBX_TOKEN)
 recognition.load_encodings(home_path=config.home)
 
-app = Flask(__name__)
 
-
-def get_db():
-    db_connection = getattr(g, '_database', None)
-    if db_connection is None:
-        db_connection = db.connect()
-        g._database = db_connection
-    return db_connection
-
-
-@app.teardown_appcontext
-def close_connection(exception):
-    db_connection = getattr(g, '_database', None)
-    if db_connection is not None:
-        db_connection.close()
-
-
-@app.route('/')
-def hello_world():
-    return f'Hello'
-
-
-@app.route('/kamera', methods=['GET'])
-def verify():
-    '''Respond to the webhook verification (GET request) by echoing back the challenge parameter.'''
-
-    return request.args.get('challenge')
-
-
-def dbx_list_media(cur: Cursor, dir: Path) -> dropbox.files.Metadata:
-    result = dbx.files_list_folder(dir.as_posix())
+def dbx_list_entries() -> dropbox.files.Metadata:
+    path = config.uploads_db_folder
+    result = dbx.files_list_folder(path.as_posix())
     while True:
-        print(f"Entries in upload foleder: {len(result.entries)}")
-        pprint(result)
+        print(f"Entries in upload folder: {len(result.entries)}")
+        print(result)
         for entry in result.entries:
             # Ignore deleted files, folders
             if (entry.path_lower.endswith(media_extensions) and
@@ -245,49 +211,30 @@ def process_entry(
         end_time = dt.datetime.now()
         duration = end_time - start_time
         print(f"{entry.name}, duration: {duration}")
-        times.append(duration.seconds)
         print()
 
 
-def get_entry(cur: Cursor) -> Optional[dropbox.files.Metadata]:
-    processing_list = db.get_processing_list(cur)
-    for entry in dbx_list_media(cur, dir=config.uploads_db_folder):
-        if entry.name not in processing_list:
-            break
-    else:
-        return None
-    db.add_entry_to_processing_list(cur, entry)
-    get_db().commit()
-    return entry
+def main():
+    db = database_manager.connect()
+    cursor = db.cursor()
+    while True:
+        media_list = database_manager.get_media_list(cursor)
+        if not media_list:
+            time.sleep(5)
+            continue
+        entries = dbx.dbx_list_entries()
+        for entry in entries:
+            try:
+                process_entry(
+                    entry=entry,
+                    out_dir=config.kamera_db_folder,
+                    backup_dir=config.backup_db_folder,
+                    error_dir=config.errors_db_folder
+                )
+            finally:
+                database_manager.remove_entry_from_processing_list(cursor, entry)
+                db.commit()
 
 
-@app.route('/kamera', methods=['POST'])
-def main() -> str:
-    signature = request.headers.get('X-Dropbox-Signature')
-    print("incoming request")
-    if not hmac.compare_digest(signature, hmac.new(config.APP_SECRET, request.data, sha256).hexdigest()):
-        print(abort)
-        abort(403)
-
-    cur = get_db().cursor()
-    uwsgi.lock()
-    try:
-        entry = get_entry(cur)
-    finally:
-        uwsgi.unlock()
-
-    if entry is None:
-        print("No entries found")
-        return ""
-
-    try:
-        process_entry(
-            entry=entry,
-            out_dir=config.kamera_db_folder,
-            backup_dir=config.backup_db_folder,
-            error_dir=config.errors_db_folder
-        )
-    finally:
-        db.remove_entry_from_processing_list(cur, entry)
-        get_db().commit()
-    return ""
+if __name__ == '__main__':
+    main()
