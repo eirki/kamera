@@ -63,3 +63,4 @@ def webhook() -> str:
         get_db().commit()
     finally:
         uwsgi.unlock()
+    return ""
