@@ -253,9 +253,9 @@ def process_entry(
 
 
 def get_entry(cur: Cursor) -> Optional[dropbox.files.Metadata]:
+    processing_list = db.get_processing_list(cur)
     for entry in dbx_list_media(cur, dir=config.uploads_db_folder):
-        processing = db.check_entry_in_processing_list(cur, entry)
-        if not processing:
+        if entry.name not in processing_list:
             break
     else:
         return None

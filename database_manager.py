@@ -32,17 +32,17 @@ def connect():
     return connection
 
 
-def check_entry_in_processing_list(cursor: Cursor, entry: dropbox.files.Metadata) -> bool:
-    cursor.execute("SELECT 1 FROM entries_processing WHERE name = %(name)s", {"name": entry.name})
-    entry = cursor.fetchone()
-    print(f"proc: {entry}")
-    return entry is not None
-
-
 def add_entry_to_processing_list(cursor: Cursor, entry: dropbox.files.Metadata):
     sql_cmd = "INSERT INTO entries_processing (name) VALUES (%(name)s)"
     sql_data = {"name": entry.name}
     cursor.execute(sql_cmd, sql_data)
+
+
+def get_processing_list(cursor: Cursor) -> Set[str]:
+    cursor.execute("SELECT * FROM entries_processing")
+    processing_list = set(name[0] for name in cursor.fetchall())
+    print(f"proc: {processing_list}")
+    return processing_list
 
 
 def remove_entry_from_processing_list(cursor: Cursor, entry: dropbox.files.Metadata):
