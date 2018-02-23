@@ -15,7 +15,7 @@ import dropbox
 from flask import Flask, request, abort, g
 import uwsgi
 
-from typing import Callable, Optional, List
+from typing import Callable, Optional
 from MySQLdb.cursors import Cursor
 
 import config
@@ -74,17 +74,15 @@ def verify():
 
 
 def dbx_list_media(cur: Cursor, dir: Path) -> dropbox.files.Metadata:
-
     result = dbx.files_list_folder(dir.as_posix())
     while True:
+        print(f"Entries in upload foleder: {len(result.entries)}")
         pprint(result)
-        print(len(result.entries))
         for entry in result.entries:
             # Ignore deleted files, folders
             if (entry.path_lower.endswith(media_extensions) and
                     isinstance(entry, dropbox.files.FileMetadata)):
                 yield entry
-
 
         # Repeat only if there's more to do
         if result.has_more:
@@ -204,7 +202,6 @@ def process_entry(
         error_dir: Path):
     print(f"{entry.name}: Processing")
     start_time = dt.datetime.now()
-    print(f"{start_time} | {entry.name}: Processing")
     print(entry)
     try:
         filepath = Path(entry.path_display)
@@ -247,7 +244,7 @@ def process_entry(
     finally:
         end_time = dt.datetime.now()
         duration = end_time - start_time
-        print(f"{end_time} | {entry.name}, duration: {duration}")
+        print(f"{entry.name}, duration: {duration}")
         times.append(duration.seconds)
         print()
 
@@ -260,14 +257,14 @@ def get_entry(cur: Cursor) -> Optional[dropbox.files.Metadata]:
     else:
         return None
     db.add_entry_to_processing_list(cur, entry)
+    get_db().commit()
     return entry
 
 
 @app.route('/kamera', methods=['POST'])
-def webhook() -> str:
+def main() -> str:
     signature = request.headers.get('X-Dropbox-Signature')
-    print(signature)
-    print(request.data)
+    print("incoming request")
     if not hmac.compare_digest(signature, hmac.new(config.APP_SECRET, request.data, sha256).hexdigest()):
         print(abort)
         abort(403)
@@ -292,4 +289,5 @@ def webhook() -> str:
         )
     finally:
         db.remove_entry_from_processing_list(cur, entry)
+        get_db().commit()
     return ""
