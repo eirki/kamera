@@ -2,7 +2,7 @@
 # coding: utf-8
 from hashlib import sha256
 import hmac
-
+import contextlib
 import dropbox
 from flask import Flask, request, abort, g
 import uwsgi
@@ -44,23 +44,28 @@ def verify():
     return request.args.get('challenge')
 
 
+@contextlib.contextmanager
+def lock():
+    """wrapper around uwsgi.lock"""
+    uwsgi.lock()
+    try:
+        yield
+    finally:
+        uwsgi.unlock()
+
+
 @app.route('/kamera', methods=['POST'])
 def webhook() -> str:
     signature = request.headers.get('X-Dropbox-Signature')
-    print("incoming request")
+    print("request incoming")
     if not hmac.compare_digest(signature, hmac.new(config.APP_SECRET, request.data, sha256).hexdigest()):
         print(abort)
         abort(403)
 
-    cur = get_db().cursor()
-    uwsgi.lock()
-    try:
-        media_list = db.get_media_list(cur)
+    with lock(), get_db() as cursor:
+        media_list = db.get_media_list(cursor)
         for entry in main.dbx_list_entries():
-            if entry.name in media_list:
-                continue
-            db.add_entry_to_media_list(cur, entry)
-        get_db().commit()
-    finally:
-        uwsgi.unlock()
+            if entry.name not in media_list:
+                db.add_entry_to_media_list(cursor, entry)
+    print("request finished")
     return ""

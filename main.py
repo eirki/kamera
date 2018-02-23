@@ -217,10 +217,10 @@ def main():
     recognition.load_encodings(home_path=config.home)
     dbx.users_get_current_account()
     db_connection = database_manager.connect()
-    cursor = db_connection.cursor()
     try:
         while True:
-            media_list = database_manager.get_media_list(cursor)
+            with db_connection as cursor:
+                media_list = database_manager.get_media_list(cursor)
             if not media_list:
                 time.sleep(5)
                 continue
@@ -234,8 +234,8 @@ def main():
                         error_dir=config.errors_db_folder
                     )
                 finally:
-                    database_manager.remove_entry_from_media_list(cursor, entry)
-                    db_connection.commit()
+                    with db_connection as cursor:
+                        database_manager.remove_entry_from_media_list(cursor, entry)
     except KeyboardInterrupt:
         sys.exit()
     finally:
