@@ -234,7 +234,7 @@ def main():
                         error_dir=config.errors_db_folder
                     )
                 finally:
-                    database_manager.remove_entry_from_processing_list(cursor, entry)
+                    database_manager.remove_entry_from_media_list(cursor, entry)
                     db_connection.commit()
     except KeyboardInterrupt:
         sys.exit()
