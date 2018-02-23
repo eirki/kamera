@@ -5,6 +5,7 @@ from pathlib import Path
 import traceback
 import datetime as dt
 import time
+import sys
 
 import pytz
 from timezonefinderL import TimezoneFinder
@@ -35,8 +36,6 @@ folder_names = {
 }
 
 dbx = dropbox.Dropbox(config.DBX_TOKEN)
-recognition.load_encodings(home_path=config.home)
-
 
 def dbx_list_entries() -> dropbox.files.Metadata:
     path = config.uploads_db_folder
@@ -215,25 +214,32 @@ def process_entry(
 
 
 def main():
-    db = database_manager.connect()
-    cursor = db.cursor()
-    while True:
-        media_list = database_manager.get_media_list(cursor)
-        if not media_list:
-            time.sleep(5)
-            continue
-        entries = dbx.dbx_list_entries()
-        for entry in entries:
-            try:
-                process_entry(
-                    entry=entry,
-                    out_dir=config.kamera_db_folder,
-                    backup_dir=config.backup_db_folder,
-                    error_dir=config.errors_db_folder
-                )
-            finally:
-                database_manager.remove_entry_from_processing_list(cursor, entry)
-                db.commit()
+    recognition.load_encodings(home_path=config.home)
+    dbx.users_get_current_account()
+    db_connection = database_manager.connect()
+    cursor = db_connection.cursor()
+    try:
+        while True:
+            media_list = database_manager.get_media_list(cursor)
+            if not media_list:
+                time.sleep(5)
+                continue
+            entries = dbx.dbx_list_entries()
+            for entry in entries:
+                try:
+                    process_entry(
+                        entry=entry,
+                        out_dir=config.kamera_db_folder,
+                        backup_dir=config.backup_db_folder,
+                        error_dir=config.errors_db_folder
+                    )
+                finally:
+                    database_manager.remove_entry_from_processing_list(cursor, entry)
+                    db_connection.commit()
+    except KeyboardInterrupt:
+        sys.exit()
+    finally:
+        db_connection.close()
 
 
 if __name__ == '__main__':

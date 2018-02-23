@@ -12,6 +12,7 @@ import database_manager as db
 import main
 
 dbx = dropbox.Dropbox(config.DBX_TOKEN)
+dbx.users_get_current_account()
 
 app = Flask(__name__)
 
