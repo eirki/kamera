@@ -32,7 +32,10 @@ dbx = dropbox.Dropbox(config.DBX_TOKEN)
 
 def list_entries() -> dropbox.files.Metadata:
     path = config.uploads_db_folder
-    result = dbx.files_list_folder(path.as_posix())
+    result = dbx.files_list_folder(
+        path=path.as_posix(),
+        include_media_info=True
+    )
     while True:
         print(f"Entries in upload folder: {len(result.entries)}")
         print(result)
