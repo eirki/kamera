@@ -19,6 +19,8 @@ dlib = "==19.4"
 face-recognition = "==0.2.2"
 opencv-python = "*"
 mysqlclient = "*"
+flask = "*"
+uwsgi = "*"
 
 
 [dev-packages]
