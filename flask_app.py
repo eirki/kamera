@@ -3,16 +3,14 @@
 from hashlib import sha256
 import hmac
 import contextlib
-import dropbox
 from flask import Flask, request, abort, g
 import uwsgi
 
 import config
+import cloud
 import database_manager as db
-import main
 
-dbx = dropbox.Dropbox(config.DBX_TOKEN)
-dbx.users_get_current_account()
+cloud.dbx.users_get_current_account()
 
 app = Flask(__name__)
 
@@ -33,7 +31,7 @@ def close_connection(exception):
 
 
 @app.route('/')
-def hello_world():
+def hello_world() -> str:
     return f'Hello'
 
 
@@ -64,7 +62,7 @@ def webhook() -> str:
 
     with lock(), get_db() as cursor:
         media_list = db.get_media_list(cursor)
-        for entry in main.dbx_list_entries():
+        for entry in cloud.list_entries():
             if entry.name not in media_list:
                 db.add_entry_to_media_list(cursor, entry)
     print("request finished")
