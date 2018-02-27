@@ -1,5 +1,7 @@
 #! /usr/bin/env python3.6
 # coding: utf-8
+from logger import log
+
 from hashlib import sha256
 import hmac
 import contextlib
@@ -55,9 +57,9 @@ def lock():
 @app.route('/kamera', methods=['POST'])
 def webhook() -> str:
     signature = request.headers.get('X-Dropbox-Signature')
-    print("request incoming")
+    log.info("request incoming")
     if not hmac.compare_digest(signature, hmac.new(config.APP_SECRET, request.data, sha256).hexdigest()):
-        print(abort)
+        log.info(abort)
         abort(403)
 
     with lock(), get_db() as cursor:
@@ -65,5 +67,5 @@ def webhook() -> str:
         for entry in cloud.list_entries():
             if entry.name not in media_list:
                 db.add_entry_to_media_list(cursor, entry)
-    print("request finished")
+    log.info("request finished")
     return ""

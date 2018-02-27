@@ -1,5 +1,7 @@
 #! /usr/bin/env python3.6
 # coding: utf-8
+from logger import log
+
 from pathlib import Path
 import traceback
 import datetime as dt
@@ -51,9 +53,9 @@ def process_entry(
         out_dir: Path,
         backup_dir: Path,
         error_dir: Path):
-    print(f"{entry.name}: Processing")
+    log.info(f"{entry.name}: Processing")
     start_time = dt.datetime.now()
-    print(entry)
+    log.info(entry)
     try:
         filepath = Path(entry.path_display)
         if filepath.suffix.lower() in (".mp4", ".gif"):
@@ -89,14 +91,14 @@ def process_entry(
 
         cloud.move_entry(filepath, out_dir=backup_dir, date=date)
     except Exception as exc:
-        print(f"Exception occured, moving to Error subfolder: {filepath.name}")
-        traceback.print_exc()
+        log.info(f"Exception occured, moving to Error subfolder: {filepath.name}")
+        log.error(traceback.format_exc())
         cloud.move_entry(filepath, out_dir=error_dir, subfolder="Errors")
     finally:
         end_time = dt.datetime.now()
         duration = end_time - start_time
-        print(f"{entry.name}, duration: {duration}")
-        print()
+        log.info(f"{entry.name}, duration: {duration}")
+        log.info("\n")
 
 
 def main():

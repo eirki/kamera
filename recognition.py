@@ -1,5 +1,7 @@
 #! /usr/bin/env python3.6
 # coding: utf-8
+from logger import log
+
 import json
 from io import BytesIO
 from collections import namedtuple
@@ -13,7 +15,7 @@ try:
 except ImportError:
     face_recognition = None
     np_array = None
-    print("Unable to import face_recognition.")
+    log.info("Unable to import face_recognition.")
 
 import config
 
@@ -38,7 +40,7 @@ def load_encodings(home_path: Path):
                 data = face_recognition.load_image_file(img_path)
                 encodings = face_recognition.face_encodings(data)
                 if len(encodings) == 0:
-                    print(f"Warning: No encodings found: {img_path}")
+                    log.info(f"Warning: No encodings found: {img_path}")
                     continue
                 elif len(encodings) > 1:
                     raise Exception(f"Multiple encodings found: {img_path}")

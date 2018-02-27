@@ -1,5 +1,7 @@
 #! /usr/bin/env python3.6
 # coding: utf-8
+from logger import log
+
 from functools import partial
 import dropbox
 import datetime as dt
@@ -37,8 +39,8 @@ def list_entries() -> dropbox.files.Metadata:
         include_media_info=True
     )
     while True:
-        print(f"Entries in upload folder: {len(result.entries)}")
-        print(result)
+        log.info(f"Entries in upload folder: {len(result.entries)}")
+        log.info(result)
         for entry in result.entries:
             # Ignore deleted files, folders
             if (entry.path_lower.endswith(media_extensions) and
@@ -56,7 +58,7 @@ def execute_transfer(transfer_func: Callable, destination: Path):
     try:
         transfer_func()
     except dropbox.exceptions.BadInputError:
-        print(f"Making folder: {destination}")
+        log.info(f"Making folder: {destination}")
         dbx.files_create_folder(destination.as_posix())
         transfer_func()
     except dropbox.exceptions.ApiError as Exception:
@@ -66,7 +68,7 @@ def execute_transfer(transfer_func: Callable, destination: Path):
                     Exception.error.get_to().get_conflict(),
                     dropbox.files.WriteConflictError)
             ):
-                print(f"Skipping copy, file already present: {destination}")
+                log.info(f"Skipping copy, file already present: {destination}")
 
             elif (
                 isinstance(Exception.error, dropbox.files.UploadError) and
@@ -74,7 +76,7 @@ def execute_transfer(transfer_func: Callable, destination: Path):
                     Exception.error.get_path().reason.get_conflict(),
                     dropbox.files.WriteConflictError)
             ):
-                print(f"Skipping move, file already present: {destination}")
+                log.info(f"Skipping move, file already present: {destination}")
             else:
                 raise
 
@@ -95,7 +97,7 @@ def move_entry(
         to_path=destination.as_posix()
     )
 
-    print(f"{from_path.stem}: Moving to dest: {destination}")
+    log.info(f"{from_path.stem}: Moving to dest: {destination}")
     execute_transfer(transfer_func, destination)
 
 
@@ -111,7 +113,7 @@ def copy_entry(
         to_path=destination.as_posix()
     )
 
-    print(f"{from_path.stem}: Copying to dest: {destination}")
+    log.info(f"{from_path.stem}: Copying to dest: {destination}")
     execute_transfer(transfer_func, destination)
 
 
@@ -125,5 +127,5 @@ def upload_entry(
 
     transfer_func = partial(dbx.files_upload, f=new_data, path=destination.as_posix())
 
-    print(f"{destination.stem}: Uploading to dest: {destination}")
+    log.info(f"{destination.stem}: Uploading to dest: {destination}")
     execute_transfer(transfer_func, destination)
