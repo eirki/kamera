@@ -43,7 +43,7 @@ def add_entry_to_media_list(cursor: Cursor, media: dropbox.files.Metadata):
 def get_media_list(cursor: Cursor) -> Set[str]:
     cursor.execute("SELECT * FROM entries_processing")
     media_list = set(name[0] for name in cursor.fetchall())
-    log.info(f"media: {media_list}")
+    log.debug(f"Media: {media_list}")
     return media_list
 
 
