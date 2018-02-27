@@ -56,9 +56,10 @@ def lock():
 
 @app.route('/kamera', methods=['POST'])
 def webhook() -> str:
-    signature = request.headers.get('X-Dropbox-Signature')
     log.info("request incoming")
-    if not hmac.compare_digest(signature, hmac.new(config.APP_SECRET, request.data, sha256).hexdigest()):
+    signature = request.headers.get('X-Dropbox-Signature')
+    digest = hmac.new(config.APP_SECRET, request.data, sha256).hexdigest()
+    if not hmac.compare_digest(signature, digest):
         log.info(abort)
         abort(403)
 

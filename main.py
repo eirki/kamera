@@ -3,7 +3,6 @@
 from logger import log
 
 from pathlib import Path
-import traceback
 import datetime as dt
 import time
 import sys
@@ -90,9 +89,8 @@ def process_entry(
                 cloud.upload_entry(filepath, new_data, out_dir, date)
 
         cloud.move_entry(filepath, out_dir=backup_dir, date=date)
-    except Exception as exc:
-        log.info(f"Exception occured, moving to Error subfolder: {filepath.name}")
-        log.error(traceback.format_exc())
+    except Exception:
+        log.exception(f"Exception occured, moving to Error subfolder: {filepath.name}")
         cloud.move_entry(filepath, out_dir=error_dir, subfolder="Errors")
     finally:
         end_time = dt.datetime.now()
