@@ -1,5 +1,6 @@
 #! /usr/bin/env python3.6
 # coding: utf-8
+from logger import log
 
 from io import BytesIO
 import subprocess
@@ -118,7 +119,7 @@ def main(data: bytes,
 
     # Convert image from PNG to JPG, put data into BytesIO obj
     if filepath.suffix.lower() == ".png":
-        print(f"{name}: Converting to JPG")
+        log.info(f"{name}: Converting to JPG")
         data = convert_png_to_jpg(data)
         data_changed = True
 
@@ -127,7 +128,7 @@ def main(data: bytes,
 
     # Convert image to smaller resolution if needed
     if dimensions and dimensions.width > 1440 and dimensions.height > 1440:
-        print(f"{name}: Resizing")
+        log.info(f"{name}: Resizing")
         data = resize(data)
         data_changed = True
 
@@ -136,7 +137,7 @@ def main(data: bytes,
         orig_datestring = exif_metadata["Exif"][piexif.ExifIFD.DateTimeOriginal].decode()
         exif_date = dt.datetime.strptime(orig_datestring, "%Y:%m:%d %H:%M:%S")
     except KeyError:
-        print(f"{name}: Inserting date {date}")
+        log.info(f"{name}: Inserting date {date}")
         add_date(date, exif_metadata)
         exif_date = None
         data_changed = True
@@ -163,7 +164,7 @@ def main(data: bytes,
 
     # Add tags to image data if present
     if tags:
-        print(f"{name}: Tagging {tags}")
+        log.info(f"{name}: Tagging {tags}")
         data = add_tag(data, tags)
         data_changed = True
 
