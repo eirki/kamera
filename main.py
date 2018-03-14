@@ -98,9 +98,18 @@ def process_entry(
         log.info("\n")
 
 
-def main():
-    recognition.load_encodings(home_path=config.home)
-    cloud.dbx.users_get_current_account()
+def run_once():
+    entries = cloud.list_entries()
+    for entry in entries:
+        process_entry(
+            entry=entry,
+            out_dir=config.kamera_db_folder,
+            backup_dir=config.backup_db_folder,
+            error_dir=config.errors_db_folder
+        )
+
+
+def loop():
     db_connection = database_manager.connect()
     try:
         while True:
@@ -127,5 +136,14 @@ def main():
         db_connection.close()
 
 
+def main(mode=None):
+    recognition.load_encodings(home_path=config.home)
+    cloud.dbx.users_get_current_account()
+    if mode == "test":
+        run_once()
+    else:
+        loop()
+
+
 if __name__ == '__main__':
-    main()
+    main(*sys.argv[1:])
