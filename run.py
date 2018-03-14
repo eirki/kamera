@@ -4,6 +4,7 @@
 # From https://help.pythonanywhere.com/pages/LongRunningTasks/
 import socket
 import sys
+import time
 
 import config
 
@@ -22,11 +23,16 @@ def is_lock_free():
         return True
     except socket.error:
         # socket already locked, task must already be running
-        print(f"Failed to acquire lock {lock_id}")
         return False
 
 
-if not is_lock_free():
+print("Trying to aquire lock")
+for _ in range(59):
+    if is_lock_free():
+        break
+    time.sleep(60)
+else:
+    print("Failed to acquire lock")
     sys.exit()
 
 
