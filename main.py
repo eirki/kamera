@@ -22,22 +22,21 @@ import dropbox
 
 def parse_date(
         entry: dropbox.files.Metadata,
-        location: Optional[dropbox.files.GpsCoordinates] = None
+        dbx_photo_metadata: Optional[dropbox.files.FileMetadata] = None
         ) -> dt.datetime:
-    if "burst" in entry.name.lower():
-        naive_date = dt.datetime.strptime(entry.name[20:34], "%Y%m%d%H%M%S")
-    else:
-        try:
-            naive_date = dt.datetime.strptime(entry.name[:19], "%Y-%m-%d %H.%M.%S")
-        except ValueError:
-            naive_date = entry.client_modified
+
+    naive_date = (
+        dbx_photo_metadata.time_taken
+        if dbx_photo_metadata.time_taken is not None
+        else entry.client_modified
+    )
 
     utc_date = naive_date.replace(tzinfo=dt.timezone.utc)
 
-    if location is not None:
+    if dbx_photo_metadata.location is not None:
         img_tz = TimezoneFinder().timezone_at(
-            lat=location.latitude,
-            lng=location.longitude
+            lat=dbx_photo_metadata.location.latitude,
+            lng=dbx_photo_metadata.location.longitude
         )
         if img_tz:
             local_date = utc_date.astimezone(tz=pytz.timezone(img_tz))
@@ -66,7 +65,7 @@ def process_entry(
                 dbx_photo_metadata = entry.media_info.get_metadata()
                 dimensions = dbx_photo_metadata.dimensions
                 location = dbx_photo_metadata.location
-                date = parse_date(entry, location)
+                date = parse_date(entry, dbx_photo_metadata)
             else:
                 dimensions = None
                 location = None
