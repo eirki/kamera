@@ -94,7 +94,8 @@ def move_entry(
     transfer_func = partial(
         dbx.files_move,
         from_path=from_path.as_posix(),
-        to_path=destination.as_posix()
+        to_path=destination.as_posix(),
+        autorename=True
     )
 
     log.info(f"{from_path.stem}: Moving to dest: {destination}")
@@ -110,7 +111,8 @@ def copy_entry(
     transfer_func = partial(
         dbx.files_copy,
         from_path=from_path.as_posix(),
-        to_path=destination.as_posix()
+        to_path=destination.as_posix(),
+        autorename=True
     )
 
     log.info(f"{from_path.stem}: Copying to dest: {destination}")
@@ -125,7 +127,12 @@ def upload_entry(
     new_name = from_path.with_suffix(".jpg").name
     destination = out_dir / str(date.year) / folder_names[date.month] / new_name
 
-    transfer_func = partial(dbx.files_upload, f=new_data, path=destination.as_posix())
+    transfer_func = partial(
+        dbx.files_upload,
+        f=new_data,
+        path=destination.as_posix(),
+        autorename=True
+    )
 
     log.info(f"{destination.stem}: Uploading to dest: {destination}")
     execute_transfer(transfer_func, destination)
