@@ -90,7 +90,7 @@ def process_entry(
         cloud.move_entry(filepath, out_dir=backup_dir, date=date)
     except Exception:
         log.exception(f"Exception occured, moving to Error subfolder: {filepath.name}")
-        cloud.move_entry(filepath, out_dir=error_dir, subfolder="Errors")
+        cloud.move_entry(filepath, out_dir=error_dir)
     finally:
         end_time = dt.datetime.now()
         duration = end_time - start_time

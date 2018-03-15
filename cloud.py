@@ -66,12 +66,11 @@ def execute_transfer(transfer_func: Callable, destination: Path):
 def move_entry(
         from_path: Path,
         out_dir: Path,
-        date: dt.datetime = None,
-        subfolder: str = None):
+        date: dt.datetime = None):
     if date is not None:
         destination = out_dir / str(date.year) / folder_names[date.month] / from_path.name
-    elif subfolder is not None:
-        destination = out_dir / subfolder / from_path.name
+    else:
+        destination = out_dir / from_path.name
 
     transfer_func = partial(
         dbx.files_move,
