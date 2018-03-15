@@ -54,3 +54,7 @@ recognition_tolerance = 0.4
 
 blur_tolerance = 100.00
 
+
+def edit_tags(tags):
+    for i, tag in enumerate(tags):
+        pass

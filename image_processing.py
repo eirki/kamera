@@ -164,6 +164,7 @@ def main(data: bytes,
 
     # Add tags to image data if present
     if tags:
+        config.edit_tags(tags)
         log.info(f"{name}: Tagging {tags}")
         data = add_tag(data, tags)
         data_changed = True
