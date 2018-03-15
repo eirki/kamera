@@ -49,3 +49,8 @@ people = [
     Person(name="Person1 name", encodings=[]),
     Person(name="Person2 name", encodings=[]),
 ]
+
+recognition_tolerance = 0.4
+
+blur_tolerance = 100.00
+
