@@ -25,15 +25,14 @@ def parse_date(
         dbx_photo_metadata: Optional[dropbox.files.FileMetadata] = None
         ) -> dt.datetime:
 
-    naive_date = (
-        dbx_photo_metadata.time_taken
-        if dbx_photo_metadata.time_taken is not None
-        else entry.client_modified
-    )
+    if dbx_photo_metadata and dbx_photo_metadata.time_taken:
+        naive_date = dbx_photo_metadata.time_taken
+    else:
+        naive_date = entry.client_modified
 
     utc_date = naive_date.replace(tzinfo=dt.timezone.utc)
 
-    if dbx_photo_metadata.location is not None:
+    if dbx_photo_metadata and dbx_photo_metadata.location:
         img_tz = TimezoneFinder().timezone_at(
             lat=dbx_photo_metadata.location.latitude,
             lng=dbx_photo_metadata.location.longitude
