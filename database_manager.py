@@ -14,11 +14,11 @@ from typing import Set
 
 class LoggingCursor(Cursor):
     def execute(self, query, args=None):
-        log.info(query % args if args else query)
+        log.debug(query % args if args else query)
         super().execute(query, args)
 
     def executemany(self, query, args=None):
-        log.info(query % args if args else query)
+        log.debug(query % args if args else query)
         super().executemany(query, args)
 
 
