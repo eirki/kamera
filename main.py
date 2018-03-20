@@ -117,6 +117,7 @@ def loop():
             if not media_list:
                 time.sleep(5)
                 continue
+            log.info(f"Media: {media_list}")
             entries = cloud.list_entries()
             for entry in entries:
                 try:
