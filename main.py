@@ -4,9 +4,14 @@ from logger import log
 
 from pathlib import Path
 import datetime as dt
-import time
 import sys
+from hashlib import sha256
+import hmac
+from threading import Thread
 
+from flask import Flask, request, abort
+import contextlib
+import uwsgi
 import pytz
 from timezonefinderL import TimezoneFinder
 
@@ -14,10 +19,11 @@ import config
 import cloud
 import image_processing
 import recognition
-import database_manager
 
 from typing import Optional
 import dropbox
+
+app = Flask(__name__)
 
 
 def parse_date(
@@ -108,32 +114,46 @@ def run_once():
         )
 
 
-def loop():
-    db_connection = database_manager.connect()
+@contextlib.contextmanager
+def lock():
+    """wrapper around uwsgi.lock"""
+    uwsgi.lock()
     try:
-        while True:
-            with db_connection as cursor:
-                media_list = database_manager.get_media_list(cursor)
-            if not media_list:
-                time.sleep(5)
-                continue
-            log.info(f"Media: {media_list}")
-            entries = cloud.list_entries()
-            for entry in entries:
-                try:
-                    process_entry(
-                        entry=entry,
-                        out_dir=config.kamera_db_folder,
-                        backup_dir=config.backup_db_folder,
-                        error_dir=config.errors_db_folder
-                    )
-                finally:
-                    with db_connection as cursor:
-                        database_manager.remove_entry_from_media_list(cursor, entry)
-    except KeyboardInterrupt:
-        sys.exit()
+        yield
     finally:
-        db_connection.close()
+        uwsgi.unlock()
+
+
+@app.route('/')
+def hello_world() -> str:
+    return f'Hello'
+
+
+@app.route('/kamera', methods=['GET'])
+def verify():
+    '''Respond to the webhook verification (GET request) by echoing back the challenge parameter.'''
+    return request.args.get('challenge')
+
+
+@app.route('/kamera', methods=['POST'])
+def webhook() -> str:
+    log.info("request incoming")
+    signature = request.headers.get('X-Dropbox-Signature')
+    digest = hmac.new(config.APP_SECRET, request.data, sha256).hexdigest()
+    if not hmac.compare_digest(signature, digest):
+        log.info(abort)
+        abort(403)
+
+    kwargs = {
+        "out_dir": config.kamera_db_folder,
+        "backup_dir": config.backup_db_folder,
+        "error_dir": config.errors_db_folder,
+    }
+    for entry in cloud.list_entries():
+        thread = Thread(target=process_entry, kwargs=kwargs)
+        thread.start()
+    log.info("request finished")
+    return ""
 
 
 def main(mode=None):
@@ -142,7 +162,8 @@ def main(mode=None):
     if mode == "test":
         run_once()
     else:
-        loop()
+        app.debug = True
+        app.run()
 
 
 if __name__ == '__main__':
