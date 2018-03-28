@@ -14,7 +14,6 @@ import config
 import cloud
 import image_processing
 import recognition
-import database_manager
 
 from typing import Optional
 import dropbox
@@ -109,31 +108,21 @@ def run_once():
 
 
 def loop():
-    db_connection = database_manager.connect()
     try:
         while True:
-            with db_connection as cursor:
-                media_list = database_manager.get_media_list(cursor)
-            if not media_list:
-                time.sleep(5)
-                continue
-            log.info(f"Media: {media_list}")
             entries = cloud.list_entries()
+            if not entries:
+                time.sleep(60)
+                continue
             for entry in entries:
-                try:
-                    process_entry(
-                        entry=entry,
-                        out_dir=config.kamera_db_folder,
-                        backup_dir=config.backup_db_folder,
-                        error_dir=config.errors_db_folder
-                    )
-                finally:
-                    with db_connection as cursor:
-                        database_manager.remove_entry_from_media_list(cursor, entry)
+                process_entry(
+                    entry=entry,
+                    out_dir=config.kamera_db_folder,
+                    backup_dir=config.backup_db_folder,
+                    error_dir=config.errors_db_folder
+                )
     except KeyboardInterrupt:
         sys.exit()
-    finally:
-        db_connection.close()
 
 
 def main(mode=None):
