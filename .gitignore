@@ -5,6 +5,7 @@ cursor
 
 faces*
 testdata*
+logs*
 *cursor
 
 # Byte-compiled / optimized / DLL files
@@ -146,3 +147,12 @@ $RECYCLE.BIN/
 
 # Windows shortcuts
 *.lnk
+
+# Elastic Beanstalk Files
+
+.elasticbeanstalk/*
+
+!.elasticbeanstalk/*.cfg.yml
+
+!.elasticbeanstalk/*.global.yml
+
