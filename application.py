@@ -23,7 +23,7 @@ import recognition
 from typing import Optional
 import dropbox
 
-app = Flask(__name__)
+application = Flask(__name__)
 
 
 def parse_date(
@@ -124,18 +124,18 @@ def lock():
         uwsgi.unlock()
 
 
-@app.route('/')
+@application.route('/')
 def hello_world() -> str:
     return f'Hello'
 
 
-@app.route('/kamera', methods=['GET'])
+@application.route('/kamera', methods=['GET'])
 def verify():
     '''Respond to the webhook verification (GET request) by echoing back the challenge parameter.'''
     return request.args.get('challenge')
 
 
-@app.route('/kamera', methods=['POST'])
+@application.route('/kamera', methods=['POST'])
 def webhook() -> str:
     log.info("request incoming")
     signature = request.headers.get('X-Dropbox-Signature')
@@ -167,8 +167,8 @@ def main(mode=None):
     if mode == "test":
         run_once()
     else:
-        app.debug = True
-        app.run()
+        application.debug = True
+        application.run()
 
 
 if __name__ == '__main__':
