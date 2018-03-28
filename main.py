@@ -149,9 +149,14 @@ def webhook() -> str:
         "backup_dir": config.backup_db_folder,
         "error_dir": config.errors_db_folder,
     }
-    for entry in cloud.list_entries():
-        thread = Thread(target=process_entry, kwargs=kwargs)
-        thread.start()
+    with lock():
+        entries = cloud.list_entries()
+        threads = [
+            Thread(target=process_entry, args=(entry,), kwargs=kwargs)
+            for entry in entries
+        ]
+        [thread.start() for thread in threads]
+        [thread.join() for thread in threads]
     log.info("request finished")
     return ""
 
