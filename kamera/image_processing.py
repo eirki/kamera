@@ -1,6 +1,6 @@
 #! /usr/bin/env python3.6
 # coding: utf-8
-from logger import log
+from kamera.logger import log
 
 from io import BytesIO
 import subprocess
@@ -18,8 +18,8 @@ from pathlib import Path
 from typing import List, Union, Optional, Tuple
 import dropbox
 
-import config
-import recognition
+from kamera import config
+from kamera import recognition
 
 
 def get_closest_city(lat: float, lng: float) -> Optional[config.City]:

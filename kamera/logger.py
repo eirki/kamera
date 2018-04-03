@@ -5,7 +5,7 @@ import logging
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
 
-import config
+from kamera import config
 
 log = logging.getLogger()
 log.setLevel(logging.INFO)

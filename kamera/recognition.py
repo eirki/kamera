@@ -1,6 +1,6 @@
 #! /usr/bin/env python3.6
 # coding: utf-8
-from logger import log
+from kamera.logger import log
 
 import json
 from io import BytesIO
@@ -17,7 +17,7 @@ except ImportError:
     np_array = None
     log.info("Unable to import face_recognition.")
 
-import config
+from kamera import config
 
 Match = namedtuple("Match", ["distance", "name"])
 

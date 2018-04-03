@@ -1,6 +1,6 @@
 #! /usr/bin/env python3.6
 # coding: utf-8
-from logger import log
+from kamera.logger import log
 
 from pathlib import Path
 import datetime as dt
@@ -10,11 +10,11 @@ import sys
 import pytz
 from timezonefinderL import TimezoneFinder
 
-import config
-import cloud
-import image_processing
-import recognition
-import database_manager
+from kamera import config
+from kamera import cloud
+from kamera import image_processing
+from kamera import recognition
+from kamera import database_manager
 
 from typing import Optional
 import dropbox

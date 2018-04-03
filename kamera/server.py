@@ -1,6 +1,6 @@
 #! /usr/bin/env python3.6
 # coding: utf-8
-from logger import log
+from kamera.logger import log
 
 from hashlib import sha256
 import hmac
@@ -8,9 +8,9 @@ import contextlib
 from flask import Flask, request, abort, g
 import uwsgi
 
-import config
-import cloud
-import database_manager as db
+from kamera import config
+from kamera import cloud
+from kamera import database_manager as db
 
 cloud.dbx.users_get_current_account()
 
@@ -70,3 +70,12 @@ def webhook() -> str:
                 db.add_entry_to_media_list(cursor, entry)
     log.info("request finished")
     return ""
+
+
+def main():
+    # app.run() uwsgi does this
+    pass
+
+
+if __name__ == '__main__':
+    main()

@@ -1,12 +1,12 @@
 #! /usr/bin/env python3.6
 # coding: utf-8
-from logger import log
+from kamera.logger import log
 
 from functools import partial
 import dropbox
 import datetime as dt
 
-import config
+from kamera import config
 
 from typing import Callable
 from pathlib import Path

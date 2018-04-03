@@ -1,11 +1,11 @@
 #! python3.6
 # coding: utf-8
-from logger import log
+from kamera.logger import log
 
 import MySQLdb
 from MySQLdb.cursors import Cursor
 
-import config
+from kamera import config
 
 import dropbox
 
