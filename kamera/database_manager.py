@@ -4,6 +4,7 @@ from kamera.logger import log
 
 import MySQLdb
 from MySQLdb.cursors import DictCursor
+import sshtunnel
 
 from kamera import config
 from kamera.mediatypes import KameraEntry
@@ -31,6 +32,28 @@ def connect():
         cursorclass=Cursor
     )
     return connection
+
+
+def connect_ssh():
+    sshtunnel.SSH_TIMEOUT = 5.0
+    sshtunnel.TUNNEL_TIMEOUT = 5.0
+    tunnel = sshtunnel.SSHTunnelForwarder(
+        config.ssh_host,
+        ssh_username=config.ssh_user,
+        ssh_password=config.ssh_passwd,
+        remote_bind_address=config.ssh_remote_bind_address
+    )
+    tunnel.start()
+
+    connection = MySQLdb.connect(
+        host='127.0.0.1',
+        user=config.db_user,
+        port=tunnel.local_bind_port,
+        passwd=config.db_passwd,
+        db=config.db_name,
+        charset="utf8",
+    )
+    return connection, tunnel
 
 
 def add_entry_to_queue(

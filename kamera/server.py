@@ -20,8 +20,10 @@ app = Flask(__name__)
 def get_db():
     db_connection = getattr(g, '_database', None)
     if db_connection is None:
-        db_connection = db.connect()
+
+        connection, tunnel = db.connect_ssh()
         g._database = db_connection
+        g.tunnel = tunnel
     return db_connection
 
 
@@ -30,6 +32,8 @@ def close_connection(exception):
     db_connection = getattr(g, '_database', None)
     if db_connection is not None:
         db_connection.close()
+        tunnel = getattr(g, '_tunnel', None)
+        tunnel.stop()
 
 
 @app.route('/')
