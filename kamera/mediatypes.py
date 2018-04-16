@@ -40,10 +40,10 @@ class KameraEntry:
         time_taken = (dbx_photo_metadata.time_taken
                       if dbx_photo_metadata
                       else None)
-        height = (dbx_photo_metadata.location.height
+        height = (dbx_photo_metadata.dimensions.height
                   if dbx_photo_metadata and dbx_photo_metadata.dimensions
                   else None)
-        width = (dbx_photo_metadata.location.width
+        width = (dbx_photo_metadata.dimensions.width
                  if dbx_photo_metadata and dbx_photo_metadata.dimensions
                  else None)
         latitude = (dbx_photo_metadata.location.latitude
