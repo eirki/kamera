@@ -34,7 +34,7 @@ def close_connection(exception):
 
 @app.route('/')
 def hello_world() -> str:
-    return f'Hello'
+    return f"{config.app_id}.home"
 
 
 @app.route('/kamera', methods=['GET'])
@@ -64,10 +64,10 @@ def webhook() -> str:
         abort(403)
 
     with lock(), get_db() as cursor:
-        media_list = db.get_media_list(cursor)
+        entry_queue = db.get_queued_entries(cursor)
         for entry in cloud.list_entries():
-            if entry.name not in media_list:
-                db.add_entry_to_media_list(cursor, entry)
+            if entry not in entry_queue:
+                db.add_entry_to_queue(cursor, entry)
     log.info("request finished")
     return ""
 
