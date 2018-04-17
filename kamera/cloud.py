@@ -7,6 +7,7 @@ import dropbox
 import datetime as dt
 
 from kamera import config
+from kamera.mediatypes import KameraEntry
 
 from typing import Callable
 from pathlib import Path
@@ -32,7 +33,7 @@ folder_names = {
 dbx = dropbox.Dropbox(config.DBX_TOKEN)
 
 
-def list_entries() -> dropbox.files.Metadata:
+def list_entries() -> KameraEntry:
     path = config.uploads_db_folder
     result = dbx.files_list_folder(
         path=path.as_posix(),
@@ -43,9 +44,13 @@ def list_entries() -> dropbox.files.Metadata:
         log.info(result)
         for entry in result.entries:
             # Ignore deleted files, folders
-            if (entry.path_lower.endswith(media_extensions) and
+            if not (entry.path_lower.endswith(media_extensions) and
                     isinstance(entry, dropbox.files.FileMetadata)):
-                yield entry
+                continue
+
+            dbx_photo_metadata = entry.media_info.get_metadata() if entry.media_info else None
+            kamera_entry = KameraEntry.from_dbx_entry(entry, dbx_photo_metadata)
+            yield kamera_entry
 
         # Repeat only if there's more to do
         if result.has_more:
