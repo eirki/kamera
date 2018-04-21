@@ -52,6 +52,7 @@ def connect_ssh():
         passwd=config.db_passwd,
         db=config.db_name,
         charset="utf8",
+        cursorclass=Cursor
     )
     return connection, tunnel
 
@@ -62,12 +63,12 @@ def add_entry_to_queue(
         ):
     columns = ', '.join(entry.db_data.keys())
     placeholders = ', '.join(['%s'] * len(entry.db_data))
-    sql_cmd = f"INSERT INTO entries_processing ({columns}) VALUES ({placeholders})"
+    sql_cmd = f"INSERT INTO queued_entries ({columns}) VALUES ({placeholders})"
     cursor.execute(sql_cmd, entry.db_data.values())
 
 
 def get_queued_entries(cursor: Cursor) -> Set[KameraEntry]:
-    cursor.execute("SELECT * FROM entries_processing")
+    cursor.execute("SELECT * FROM queued_entries")
     result = cursor.fetchall()
     queued_entries = {
         KameraEntry.from_db_data(data)
@@ -77,6 +78,6 @@ def get_queued_entries(cursor: Cursor) -> Set[KameraEntry]:
 
 
 def remove_entry_from_queue(cursor: Cursor, entry: KameraEntry):
-    sql_cmd = "DELETE FROM entries_processing where path = %(path)s"
+    sql_cmd = "DELETE FROM queued_entries where path = %(path)s"
     sql_data = {"path": entry.path.as_posix()}
     cursor.execute(sql_cmd, sql_data)
