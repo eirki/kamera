@@ -2,10 +2,10 @@
 *
 
 # But not these files...
-application.py
-requirements.txt
-kamera/cloud.py
-kamera/config.py
-kamera/database_manager.py
-kamera/logger.py
-kamera/mediatypes.py
+!application.py
+!requirements.txt
+!kamera/cloud.py
+!kamera/config.py
+!kamera/database_manager.py
+!kamera/logger.py
+!kamera/mediatypes.py
