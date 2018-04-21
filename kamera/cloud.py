@@ -3,8 +3,9 @@
 from kamera.logger import log
 
 from functools import partial
-import dropbox
 import datetime as dt
+
+import dropbox
 
 from kamera import config
 from kamera.mediatypes import KameraEntry

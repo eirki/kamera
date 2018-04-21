@@ -4,7 +4,7 @@ from kamera.logger import log
 
 from hashlib import sha256
 import hmac
-import contextlib
+
 from flask import Flask, request, abort, g
 
 from kamera import config
