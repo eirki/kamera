@@ -6,7 +6,6 @@ from hashlib import sha256
 import hmac
 import contextlib
 from flask import Flask, request, abort, g
-import uwsgi
 
 from kamera import config
 from kamera import cloud
@@ -48,16 +47,6 @@ def verify():
     return request.args.get('challenge')
 
 
-@contextlib.contextmanager
-def lock():
-    """wrapper around uwsgi.lock"""
-    uwsgi.lock()
-    try:
-        yield
-    finally:
-        uwsgi.unlock()
-
-
 @app.route('/kamera', methods=['POST'])
 def webhook() -> str:
     log.info("request incoming")
@@ -67,7 +56,7 @@ def webhook() -> str:
         log.info(abort)
         abort(403)
 
-    with lock(), get_db() as cursor:
+    with get_db() as cursor:
         entry_queue = db.get_queued_entries(cursor)
         for entry in cloud.list_entries():
             if entry not in entry_queue:
