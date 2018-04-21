@@ -13,7 +13,7 @@ from kamera import database_manager as db
 
 cloud.dbx.users_get_current_account()
 
-app = Flask(__name__)
+application = Flask(__name__)
 
 
 def get_db():
@@ -26,7 +26,7 @@ def get_db():
     return db_connection
 
 
-@app.teardown_appcontext
+@application.teardown_appcontext
 def close_connection(exception):
     db_connection = getattr(g, '_database', None)
     if db_connection is not None:
@@ -35,19 +35,19 @@ def close_connection(exception):
         tunnel.stop()
 
 
-@app.route('/')
+@application.route('/')
 def hello_world() -> str:
     return f"{config.app_id}.home"
 
 
-@app.route('/kamera', methods=['GET'])
+@application.route('/kamera', methods=['GET'])
 def verify():
     '''Respond to the webhook verification (GET request) by echoing back the challenge parameter.'''
 
     return request.args.get('challenge')
 
 
-@app.route('/kamera', methods=['POST'])
+@application.route('/kamera', methods=['POST'])
 def webhook() -> str:
     log.info("request incoming")
     signature = request.headers.get('X-Dropbox-Signature')
@@ -66,8 +66,7 @@ def webhook() -> str:
 
 
 def main():
-    # app.run() uwsgi does this
-    pass
+    application.run()
 
 
 if __name__ == '__main__':
