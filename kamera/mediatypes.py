@@ -1,5 +1,7 @@
 #! /usr/bin/env python3
 # coding: utf-8
+from kamera.logger import log
+
 from collections import namedtuple
 
 from pathlib import Path
@@ -77,7 +79,6 @@ class KameraEntry:
     @property
     def db_data(self):
         return {
-            "name": self.name,
             "path": self.path.as_posix(),
             "client_modified": self.client_modified,
             "time_taken": self.time_taken,
