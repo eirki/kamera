@@ -43,11 +43,11 @@ if len(sys.argv) >= 3 and sys.argv[2] == "aquire_lock":
 
 if sys.argv[1] == "loop":
     from kamera import task
-    task.loop()
+    task.main()
 
-if sys.argv[1] == "run_once":
+elif sys.argv[1] == "run_once":
     from kamera import task
-    task.run_once()
+    task.main(mode="test")
 
 elif sys.argv[1] == "server":
     from kamera import server
