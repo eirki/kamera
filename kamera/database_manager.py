@@ -64,7 +64,7 @@ def add_entry_to_queue(
     columns = ', '.join(entry.db_data.keys())
     placeholders = ', '.join(['%s'] * len(entry.db_data))
     sql_cmd = f"INSERT INTO queued_entries ({columns}) VALUES ({placeholders})"
-    cursor.execute(sql_cmd, entry.db_data.values())
+    cursor.execute(sql_cmd, tuple(entry.db_data.values()))
 
 
 def get_queued_entries(cursor: Cursor) -> Set[KameraEntry]:
