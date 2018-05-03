@@ -20,7 +20,8 @@ face-recognition = "==0.2.2"
 opencv-python = "*"
 mysqlclient = "*"
 flask = "*"
-uwsgi = "*"
+Flask-Limiter = "*"
+sshtunnel = "*"
 
 
 [dev-packages]
