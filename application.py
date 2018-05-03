@@ -5,7 +5,9 @@ from kamera.logger import log
 from hashlib import sha256
 import hmac
 
-from flask import Flask, request, abort, g
+from flask import Flask, request, abort, g, Response
+from flask_limiter import Limiter
+from flask_limiter.util import get_remote_address
 
 from kamera import config
 from kamera import cloud
@@ -14,6 +16,7 @@ from kamera import database_manager as db
 cloud.dbx.users_get_current_account()
 
 application = Flask(__name__)
+limiter = Limiter(application, key_func=get_remote_address)
 
 
 def get_db():
@@ -36,6 +39,12 @@ def close_connection(exception):
         tunnel.stop()
 
 
+@application.errorhandler(429)
+def ratelimit_handler(e):
+    log.info("rate limit exceeded, autoreturning 200 OK")
+    return Response(status=200)
+
+
 @application.route('/')
 def hello_world() -> str:
     return f"{config.app_id}.home"
@@ -49,6 +58,7 @@ def verify():
 
 
 @application.route('/kamera', methods=['POST'])
+@limiter.limit(config.flask_rate_limit)
 def webhook() -> str:
     log.info("request incoming")
     signature = request.headers.get('X-Dropbox-Signature')
