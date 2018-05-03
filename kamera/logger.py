@@ -19,7 +19,7 @@ log_path = config.home / "log" / f"{log_name}.log"
 
 fh = RotatingFileHandler(
     filename=log_path.as_posix(),
-    maxBytes=20000,
+    maxBytes=200000,
     backupCount=5
 )
 
