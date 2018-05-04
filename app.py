@@ -5,38 +5,21 @@ from kamera.logger import log
 from hashlib import sha256
 import hmac
 
-from flask import Flask, request, abort, g, Response
+from flask import Flask, request, abort, Response
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
+import rq
+# from rq.job import Job
 
+from worker import conn
+from kamera import task
 from kamera import config
 from kamera import cloud
-from kamera import database_manager as db
 
-cloud.dbx.users_get_current_account()
 
 app = Flask(__name__)
 limiter = Limiter(app, key_func=get_remote_address)
-
-
-def get_db():
-    db_connection = getattr(g, '_database', None)
-    if db_connection is None:
-
-        db_connection, tunnel = db.connect_ssh()
-        g._database = db_connection
-        g.tunnel = tunnel
-    return db_connection
-
-
-@app.teardown_appcontext
-def close_connection(exception):
-    db_connection = getattr(g, '_database', None)
-    if db_connection is not None:
-        db_connection.close()
-    tunnel = getattr(g, '_tunnel', None)
-    if tunnel is not None:
-        tunnel.stop()
+queue = rq.Queue(connection=conn)
 
 
 @app.errorhandler(429)
@@ -67,16 +50,22 @@ def webhook() -> str:
         log.info(abort)
         abort(403)
 
-    with get_db() as cursor:
-        entry_queue = db.get_queued_entries(cursor)
-        for entry in cloud.list_entries():
-            if entry not in entry_queue:
-                db.add_entry_to_queue(cursor, entry)
+    queued_jobs = set(queue.job_ids)
+    for entry in cloud.list_entries():
+        if entry.name not in queued_jobs:
+            job = queue.enqueue_call(
+                func=task.process_entry,
+                args=(entry,),
+                result_ttl=5000,
+                job_id=entry.name
+            )
+            log.info(job.get_id())
     log.info("request finished")
     return ""
 
 
 def main():
+    cloud.dbx.users_get_current_account()
     app.run()
 
 

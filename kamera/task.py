@@ -14,7 +14,6 @@ from kamera import config
 from kamera import cloud
 from kamera import image_processing
 from kamera import recognition
-from kamera import database_manager
 
 from kamera.mediatypes import KameraEntry
 
@@ -89,42 +88,6 @@ def run_once():
             backup_dir=config.backup_db_folder,
             error_dir=config.errors_db_folder
         )
-
-
-def loop():
-    db_connection = database_manager.connect()
-    try:
-        while True:
-            with db_connection as cursor:
-                queued_entries = database_manager.get_queued_entries(cursor)
-            if not queued_entries:
-                time.sleep(5)
-                continue
-            log.info(f"Media: {queued_entries}")
-            for entry in queued_entries:
-                try:
-                    process_entry(
-                        entry=entry,
-                        out_dir=config.kamera_db_folder,
-                        backup_dir=config.backup_db_folder,
-                        error_dir=config.errors_db_folder
-                    )
-                finally:
-                    with db_connection as cursor:
-                        database_manager.remove_entry_from_queue(cursor, entry)
-    except KeyboardInterrupt:
-        sys.exit()
-    finally:
-        db_connection.close()
-
-
-def main(mode=None):
-    recognition.load_encodings(home_path=config.home)
-    cloud.dbx.users_get_current_account()
-    if mode == "test":
-        run_once()
-    else:
-        loop()
 
 
 if __name__ == '__main__':

@@ -18,12 +18,11 @@ python-resize-image = "*"
 dlib = "*"
 face-recognition = "*"
 opencv-python = "*"
-mysqlclient = "*"
 flask = "*"
 Flask-Limiter = "*"
-sshtunnel = "*"
 gunicorn = "*"
-
+redis = "*"
+rq = "*"
 
 [dev-packages]
 
