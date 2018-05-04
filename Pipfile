@@ -15,13 +15,14 @@ pillow = "*"
 piexif = "*"
 geopy = "*"
 python-resize-image = "*"
-dlib = "==19.4"
-face-recognition = "==0.2.2"
+dlib = "*"
+face-recognition = "*"
 opencv-python = "*"
 mysqlclient = "*"
 flask = "*"
 Flask-Limiter = "*"
 sshtunnel = "*"
+gunicorn = "*"
 
 
 [dev-packages]
