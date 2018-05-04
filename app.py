@@ -15,8 +15,8 @@ from kamera import database_manager as db
 
 cloud.dbx.users_get_current_account()
 
-application = Flask(__name__)
-limiter = Limiter(application, key_func=get_remote_address)
+app = Flask(__name__)
+limiter = Limiter(app, key_func=get_remote_address)
 
 
 def get_db():
@@ -29,7 +29,7 @@ def get_db():
     return db_connection
 
 
-@application.teardown_appcontext
+@app.teardown_appcontext
 def close_connection(exception):
     db_connection = getattr(g, '_database', None)
     if db_connection is not None:
@@ -39,25 +39,25 @@ def close_connection(exception):
         tunnel.stop()
 
 
-@application.errorhandler(429)
+@app.errorhandler(429)
 def ratelimit_handler(e):
     log.info("rate limit exceeded, autoreturning 200 OK")
     return Response(status=200)
 
 
-@application.route('/')
+@app.route('/')
 def hello_world() -> str:
     return f"{config.app_id}.home"
 
 
-@application.route('/kamera', methods=['GET'])
+@app.route('/kamera', methods=['GET'])
 def verify():
     '''Respond to the webhook verification (GET request) by echoing back the challenge parameter.'''
 
     return request.args.get('challenge')
 
 
-@application.route('/kamera', methods=['POST'])
+@app.route('/kamera', methods=['POST'])
 @limiter.limit(config.flask_rate_limit)
 def webhook() -> str:
     log.info("request incoming")
@@ -77,7 +77,7 @@ def webhook() -> str:
 
 
 def main():
-    application.run()
+    app.run()
 
 
 if __name__ == '__main__':
