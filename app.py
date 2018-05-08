@@ -6,11 +6,11 @@ import sys
 import os
 from hashlib import sha256
 import hmac
+import json
 
+from flask import Flask, request, abort
+import flask_limiter
 import redis
-from flask import Flask, request, abort, Response
-from flask_limiter import Limiter
-from flask_limiter.util import get_remote_address
 import rq
 
 from kamera import task
@@ -18,27 +18,32 @@ from kamera import config
 from kamera import cloud
 
 
-app = Flask(__name__)
-limiter = Limiter(app, key_func=get_remote_address)
-
-redis_url = os.getenv('REDISTOGO_URL', 'redis://localhost:6379')
+redis_url = os.environ['REDISTOGO_URL']
 conn = redis.from_url(redis_url)
 queue = rq.Queue(connection=conn)
 listen = ['default']
 running_jobs_registry = rq.registry.StartedJobRegistry(connection=conn)
 
-
-redis_url = os.getenv('REDISTOGO_URL', 'redis://localhost:6379')
-r = redis.from_url(redis_url)
-
+app = Flask(__name__)
 
 @app.errorhandler(429)
 def ratelimit_handler(e):
     log.info("rate limit exceeded, autoreturning 200 OK")
-    return Response(status=200)
+    return "rate limit exceeded"
+
+
+def dbx_req_key_func():
+    try:
+        return json.loads(request.data)["list_folder"]["user"]
+    except KeyError:
+        return flask_limiter.util.get_remote_address
+
+
+limiter = flask_limiter.Limiter(app, key_func=dbx_req_key_func)
 
 
 @app.route('/')
+@limiter.limit(config.flask_rate_limit)
 def hello_world() -> str:
     return f"{config.app_id}.home"
 
