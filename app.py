@@ -91,10 +91,10 @@ def main():
                 worker = rq.Worker(list(map(rq.Queue, listen)))
                 worker.work()
         elif sys.argv[1] == "run_once":
-            in_dir = sys.argv[2] if len(sys.argv[2]) >= 3 else config.uploads_path
-            out_dir = sys.argv[3] if len(sys.argv[3]) >= 4 else config.review_path
-            backup_dir = sys.argv[4] if len(sys.argv[4]) >= 5 else config.backup_path
-            error_dir = sys.argv[5] if len(sys.argv[5]) >= 6 else config.errors_path
+            in_dir = sys.argv[2] if len(sys.argv) >= 3 else config.uploads_path
+            out_dir = sys.argv[3] if len(sys.argv) >= 4 else config.review_path
+            backup_dir = sys.argv[4] if len(sys.argv) >= 5 else config.backup_path
+            error_dir = sys.argv[5] if len(sys.argv) >= 6 else config.errors_path
             task.run_once(
                 in_dir=in_dir,
                 out_dir=out_dir,
