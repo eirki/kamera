@@ -44,7 +44,6 @@ def process_entry(
         error_dir: Path):
     log.info(f"{entry}: Processing")
     start_time = dt.datetime.now()
-    log.info(entry)
     try:
         if entry.path.suffix.lower() in {".mp4", ".gif"}:
             date = parse_date(entry)

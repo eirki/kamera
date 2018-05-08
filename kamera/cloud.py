@@ -41,7 +41,6 @@ def list_entries(path) -> KameraEntry:
     )
     while True:
         log.info(f"Entries in upload folder: {len(result.entries)}")
-        log.info(result)
         for entry in result.entries:
             # Ignore deleted files, folders
             if not (entry.path_lower.endswith(media_extensions) and

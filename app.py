@@ -25,6 +25,7 @@ redis_url = os.getenv('REDISTOGO_URL', 'redis://localhost:6379')
 conn = redis.from_url(redis_url)
 queue = rq.Queue(connection=conn)
 listen = ['default']
+running_jobs_registry = rq.registry.StartedJobRegistry(connection=conn)
 
 
 redis_url = os.getenv('REDISTOGO_URL', 'redis://localhost:6379')
@@ -59,21 +60,27 @@ def webhook() -> str:
         log.info(abort)
         abort(403)
 
-    queued_jobs = set(queue.job_ids)
+    queued_and_running_jobs = (
+        set(queue.job_ids) | set(running_jobs_registry.get_job_ids())
+    )
+    log.info(f"queued_and_running_jobs: {queued_and_running_jobs}")
     for entry in cloud.list_entries(config.uploads_path):
-        if entry.name not in queued_jobs:
-            job = queue.enqueue_call(
-                func=task.process_entry,
-                args=(
-                    entry,
-                    config.review_path,
-                    config.backup_path,
-                    config.errors_path
-                ),
-                result_ttl=5000,
-                job_id=entry.name
-            )
-            log.info(job.get_id())
+        if entry.name in queued_and_running_jobs:
+            log.info(f"entry already queued: {entry}")
+            continue
+        log.info(f"enqueing entry: {entry}")
+        job = queue.enqueue_call(
+            func=task.process_entry,
+            args=(
+                entry,
+                config.review_path,
+                config.backup_path,
+                config.errors_path
+            ),
+            result_ttl=600,
+            job_id=entry.name
+        )
+        log.info(job.get_id())
     log.info("request finished")
     return ""
 
