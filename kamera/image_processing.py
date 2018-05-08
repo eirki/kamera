@@ -11,8 +11,6 @@ from PIL import Image
 import piexif
 from geopy.distance import great_circle
 from resizeimage import resizeimage
-import cv2
-import numpy as np
 
 from pathlib import Path
 from typing import List, Union, Optional, Tuple
@@ -55,17 +53,6 @@ def get_geo_tag(lat: float, lng: float) -> str:
             else:
                 tagstring = city.name
     return tagstring
-
-
-def check_blurry(data: bytes):
-    """
-    https://www.pyimagesearch.com/2015/03/02/convert-url-to-image-with-python-and-opencv/
-    https://www.pyimagesearch.com/2015/09/07/blur-detection-with-opencv/
-    """
-    image = np.asarray(bytearray(data), dtype="uint8")
-    image = cv2.imdecode(image, cv2.IMREAD_COLOR)
-    focus_measure = cv2.Laplacian(image, cv2.CV_64F).var()
-    return focus_measure < config.blur_tolerance
 
 
 def convert_png_to_jpg(data: bytes) -> bytes:
@@ -156,11 +143,6 @@ def main(data: bytes,
     if recognition.face_recognition is not None:
         peopletags = recognition.recognize_face(data)
         tags.extend(peopletags)
-
-    # Add quality check tag if blurry
-    blurry = check_blurry(data)
-    if blurry:
-        tags.append("quality check")
 
     # Add tags to image data if present
     if tags:

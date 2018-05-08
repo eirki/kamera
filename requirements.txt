@@ -12,7 +12,6 @@ pillow
 piexif
 geopy
 python-resize-image
-opencv-python
 flask
 Flask-Limiter
 gunicorn
