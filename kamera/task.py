@@ -79,16 +79,17 @@ def process_entry(
         log.info("\n")
 
 
-def run_once():
-    entries = cloud.list_entries()
+def run_once(
+        in_dir: Path,
+        out_dir: Path,
+        backup_dir: Path,
+        error_dir: Path,
+        ) -> None:
+    entries = cloud.list_entries(in_dir)
     for entry in entries:
         process_entry(
             entry=entry,
-            out_dir=config.kamera_db_folder,
-            backup_dir=config.backup_db_folder,
-            error_dir=config.errors_db_folder
+            out_dir=out_dir,
+            backup_dir=backup_dir,
+            error_dir=error_dir,
         )
-
-
-if __name__ == '__main__':
-    main(*sys.argv[1:])

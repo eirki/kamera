@@ -6,7 +6,7 @@ import json
 from io import BytesIO
 from collections import namedtuple
 
-from typing import List
+from typing import List, Dict
 from pathlib import Path
 
 try:
@@ -51,14 +51,14 @@ def load_encodings(home_path: Path):
 
 
 def _match_face_with_known_people(
-        known_people: List[config.Person],
+        known_people: Dict[str, List[np_array]],
         unknown_encoding: np_array
         ) -> List[Match]:
     """
     Returns possible matches for a single unknown face encoding
 
     Args:
-        known_people: list of config.Person namedtuples, with fields `name` and `encodings`
+        known_people: dictionary of mapping names to list of encodings
         unknown_encoding: single encoding from a picture
 
     Returns:
@@ -66,11 +66,11 @@ def _match_face_with_known_people(
     """
 
     match_list = []
-    for person in known_people:
+    for name, encodings in known_people.items():
         # Get most similar match for each person's encodings
-        distance = min(face_recognition.face_distance(person.encodings, unknown_encoding))
+        distance = min(face_recognition.face_distance(encodings, unknown_encoding))
         if distance < config.recognition_tolerance:
-            match_list.append(Match(distance, person.name))
+            match_list.append(Match(distance, name))
     match_list.sort()
     return match_list
 

@@ -34,8 +34,7 @@ folder_names = {
 dbx = dropbox.Dropbox(config.DBX_TOKEN)
 
 
-def list_entries() -> KameraEntry:
-    path = config.uploads_db_folder
+def list_entries(path) -> KameraEntry:
     result = dbx.files_list_folder(
         path=path.as_posix(),
         include_media_info=True

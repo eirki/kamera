@@ -1,5 +1,4 @@
 *logs
-config.py
 exiftool/
 cursor
 .mypy_cache/
