@@ -13,8 +13,9 @@ class KameraEntry:
     def __init__(
             self,
             entry: dropbox.files.Metadata,
-            metadata: Optional[dropbox.files.FileMetadata] = None) -> None:
+            metadata: Optional[dropbox.files.FileMetadata]) -> None:
         self.path = Path(entry.path_display)
+        self.name = self.path.name
         self.client_modified = entry.client_modified
 
         if metadata is not None:

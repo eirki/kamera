@@ -2,12 +2,11 @@
 # coding: utf-8
 from kamera.logger import log
 
-import json
 from io import BytesIO
 from collections import namedtuple
+from copy import deepcopy
 
 from typing import List, Dict
-from pathlib import Path
 
 try:
     import face_recognition
@@ -20,34 +19,6 @@ except ImportError:
 from kamera import config
 
 Match = namedtuple("Match", ["distance", "name"])
-
-
-def load_encodings(home_path: Path):
-    """
-    Opens pictures saved in /faces, encodes face in picture, adds encodings to person-tuple
-    """
-    if face_recognition is None:
-        return
-
-    for person in config.people:
-        path = home_path / "faces" / person.name
-        for img_path in path.iterdir():
-            json_path = img_path.with_suffix(".json")
-            if json_path.exists():
-                with json_path.open() as j:
-                    encoding = np_array(json.load(j))
-            else:
-                data = face_recognition.load_image_file(img_path)
-                encodings = face_recognition.face_encodings(data)
-                if len(encodings) == 0:
-                    log.info(f"Warning: No encodings found: {img_path}")
-                    continue
-                elif len(encodings) > 1:
-                    raise Exception(f"Multiple encodings found: {img_path}")
-                encoding = encodings[0]
-                with json_path.open("w") as j:
-                    json.dump(encoding.tolist(), j)
-            person.encodings.append(encoding)
 
 
 def _match_face_with_known_people(
@@ -69,7 +40,7 @@ def _match_face_with_known_people(
     for name, encodings in known_people.items():
         # Get most similar match for each person's encodings
         distance = min(face_recognition.face_distance(encodings, unknown_encoding))
-        if distance < config.recognition_tolerance:
+        if distance < config.settings["recognition_tolerance"]:
             match_list.append(Match(distance, name))
     match_list.sort()
     return match_list
@@ -104,7 +75,7 @@ def recognize_face(img_data: bytes) -> List[str]:
     loaded_img = face_recognition.load_image_file(BytesIO(img_data))
     unknown_encodings = face_recognition.face_encodings(loaded_img)
 
-    known_people = config.people[:]
+    known_people = deepcopy(config.people)
 
     all_facial_matches = []
     for unknown_encoding in unknown_encodings:

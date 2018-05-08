@@ -84,7 +84,7 @@ def add_date(date: dt.datetime, metadata: dict):
 
 def add_tag(data: bytes, tags: List[str]) -> bytes:
     # metadata["0th"][piexif.ImageIFD.XPKeywords] = tagstring.encode("utf-16")
-    args = [str(config.exifpath)]
+    args = ["exiftool"]
     if sys.platform == "win32":
         args.append("-L")
     args.extend([f"-xmp:Subject={tag}" for tag in tags])
@@ -146,7 +146,7 @@ def main(data: bytes,
 
     # Add tags to image data if present
     if tags:
-        tags = [config.tag_switches.get(tag, tag) for tag in tags]
+        tags = [config.tag_swaps.get(tag, tag) for tag in tags]
         log.info(f"{name}: Tagging {tags}")
         data = add_tag(data, tags)
         data_changed = True

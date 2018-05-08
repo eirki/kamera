@@ -49,7 +49,7 @@ def list_entries(path) -> KameraEntry:
                 continue
 
             dbx_photo_metadata = entry.media_info.get_metadata() if entry.media_info else None
-            kamera_entry = KameraEntry.from_dbx_entry(entry, dbx_photo_metadata)
+            kamera_entry = KameraEntry(entry, dbx_photo_metadata)
             yield kamera_entry
 
         # Repeat only if there's more to do

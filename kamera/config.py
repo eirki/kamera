@@ -28,7 +28,7 @@ errors_path = dbx_path / "Error"
 config_path = dbx_path / "config"
 
 
-settings: List[str] = []
+settings: Dict[str, str] = {}
 tag_swaps: Dict[str, str] = {}
 
 places_file = dbx_path / "config" / "places.yaml"
@@ -57,8 +57,10 @@ people: Dict[str, List[np.array]] = defaultdict(list)
 def load_settings(dbx):
     settings_file = config_path / "settings.yaml"
     _, response = dbx.files_download(settings_file.as_posix())
-    settings = yaml.load(response.raw.data)
-    tag_swaps.update(settings.pop("tag_swaps"))
+    settings_data = yaml.load(response.raw.data)
+    settings["default_tz"] = settings_data["default_tz"]
+    settings["recognition_tolerance"] = settings_data["recognition_tolerance"]
+    tag_swaps.update(settings_data.pop("tag_swaps"))
 
 
 def load_location_data(dbx):

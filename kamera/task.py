@@ -33,7 +33,7 @@ def parse_date(entry: KameraEntry) -> dt.datetime:
             local_date = utc_date.astimezone(tz=pytz.timezone(img_tz))
             return local_date
 
-    local_date = utc_date.astimezone(tz=pytz.timezone(config.default_tz))
+    local_date = utc_date.astimezone(tz=pytz.timezone(config.settings["default_tz"]))
     return local_date
 
 
