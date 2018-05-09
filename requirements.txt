@@ -16,5 +16,6 @@ flask
 Flask-Limiter
 gunicorn
 redis
+python-redis-lock
 rq
 PyYAML
