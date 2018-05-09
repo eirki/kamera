@@ -6,7 +6,7 @@ log = logging.getLogger()
 log.setLevel(logging.INFO)
 
 formatter = logging.Formatter(
-    "[%(asctime)s] %(filename)s %(levelname)s - %(message)s"
+    "%(filename)s %(levelname)s - %(message)s"
 )
 
 ch = logging.StreamHandler()

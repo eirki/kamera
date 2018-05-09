@@ -111,10 +111,9 @@ def webhook() -> str:
         log.info(f"queued_and_running_jobs: {queued_and_running_jobs}")
         for entry in cloud.list_entries(config.uploads_path):
             if entry.name in queued_and_running_jobs:
-                log.info(f"entry already queued: {entry}")
                 continue
             log.info(f"enqueing entry: {entry}")
-            job = queue.enqueue_call(
+            queue.enqueue_call(
                 func=task.process_entry,
                 args=(
                     entry,
@@ -125,10 +124,9 @@ def webhook() -> str:
                 result_ttl=600,
                 job_id=entry.name
             )
-            log.info(job.get_id())
     finally:
-        lock.release()
         log.info("request finished")
+        lock.release()
     return ""
 
 
