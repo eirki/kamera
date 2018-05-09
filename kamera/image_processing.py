@@ -11,8 +11,6 @@ from PIL import Image
 import piexif
 from geopy.distance import great_circle
 from resizeimage import resizeimage
-import cv2
-import numpy as np
 
 from pathlib import Path
 from typing import List, Union, Optional, Tuple
@@ -22,50 +20,39 @@ from kamera import config
 from kamera import recognition
 
 
-def get_closest_city(lat: float, lng: float) -> Optional[config.City]:
-    """Return city if image taken within 50 km from center of city"""
+def get_closest_area(lat: float, lng: float) -> Optional[config.Area]:
+    """Return area if image taken within 50 km from center of area"""
     distances = [
-        (great_circle((city.lat, city.lng), (lat, lng)).km, city)
-        for city in config.cities
+        (great_circle((area.lat, area.lng), (lat, lng)).km, area)
+        for area in config.areas
     ]
-    distance, closest_city = min(distances)
-    return closest_city if distance < 50 else None
+    distance, closest_area = min(distances)
+    return closest_area if distance < 50 else None
 
 
-def get_closest_location(lat: float, lng: float, city: config.City) -> Optional[config.Location]:
-    """Return closest location if image taken within 100 m"""
-    if not city.locations:
+def get_closest_spot(lat: float, lng: float, area: config.Area) -> Optional[config.Spot]:
+    """Return closest spot if image taken within 100 m"""
+    if not area.spots:
         return None
     distances = [
         (great_circle((loc.lat, loc.lng), (lat, lng)).meters, loc)
-        for loc in city.locations
+        for loc in area.spots
     ]
-    distance, closest_location = min(distances)
-    return closest_location if distance < 100 else None
+    distance, closest_spot = min(distances)
+    return closest_spot if distance < 100 else None
 
 
 def get_geo_tag(lat: float, lng: float) -> str:
     tagstring = None
     if lat and lng:
-        city = get_closest_city(lat, lng)
-        if city:
-            loc = get_closest_location(lat, lng, city)
+        area = get_closest_area(lat, lng)
+        if area:
+            loc = get_closest_spot(lat, lng, area)
             if loc:
-                tagstring = "/".join([city.name, loc.name])
+                tagstring = "/".join([area.name, loc.name])
             else:
-                tagstring = city.name
+                tagstring = area.name
     return tagstring
-
-
-def check_blurry(data: bytes):
-    """
-    https://www.pyimagesearch.com/2015/03/02/convert-url-to-image-with-python-and-opencv/
-    https://www.pyimagesearch.com/2015/09/07/blur-detection-with-opencv/
-    """
-    image = np.asarray(bytearray(data), dtype="uint8")
-    image = cv2.imdecode(image, cv2.IMREAD_COLOR)
-    focus_measure = cv2.Laplacian(image, cv2.CV_64F).var()
-    return focus_measure < config.blur_tolerance
 
 
 def convert_png_to_jpg(data: bytes) -> bytes:
@@ -97,7 +84,7 @@ def add_date(date: dt.datetime, metadata: dict):
 
 def add_tag(data: bytes, tags: List[str]) -> bytes:
     # metadata["0th"][piexif.ImageIFD.XPKeywords] = tagstring.encode("utf-16")
-    args = [str(config.exifpath)]
+    args = ["exiftool"]
     if sys.platform == "win32":
         args.append("-L")
     args.extend([f"-xmp:Subject={tag}" for tag in tags])
@@ -157,14 +144,9 @@ def main(data: bytes,
         peopletags = recognition.recognize_face(data)
         tags.extend(peopletags)
 
-    # Add quality check tag if blurry
-    blurry = check_blurry(data)
-    if blurry:
-        tags.append("quality check")
-
     # Add tags to image data if present
     if tags:
-        config.edit_tags(tags)
+        tags = [config.tag_swaps.get(tag, tag) for tag in tags]
         log.info(f"{name}: Tagging {tags}")
         data = add_tag(data, tags)
         data_changed = True

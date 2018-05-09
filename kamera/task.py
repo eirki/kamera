@@ -14,7 +14,6 @@ from kamera import config
 from kamera import cloud
 from kamera import image_processing
 from kamera import recognition
-from kamera import database_manager
 
 from kamera.mediatypes import KameraEntry
 
@@ -34,7 +33,7 @@ def parse_date(entry: KameraEntry) -> dt.datetime:
             local_date = utc_date.astimezone(tz=pytz.timezone(img_tz))
             return local_date
 
-    local_date = utc_date.astimezone(tz=pytz.timezone(config.default_tz))
+    local_date = utc_date.astimezone(tz=pytz.timezone(config.settings["default_tz"]))
     return local_date
 
 
@@ -45,7 +44,6 @@ def process_entry(
         error_dir: Path):
     log.info(f"{entry}: Processing")
     start_time = dt.datetime.now()
-    log.info(entry)
     try:
         if entry.path.suffix.lower() in {".mp4", ".gif"}:
             date = parse_date(entry)
@@ -80,52 +78,17 @@ def process_entry(
         log.info("\n")
 
 
-def run_once():
-    entries = cloud.list_entries()
+def run_once(
+        in_dir: Path,
+        out_dir: Path,
+        backup_dir: Path,
+        error_dir: Path,
+        ) -> None:
+    entries = cloud.list_entries(in_dir)
     for entry in entries:
         process_entry(
             entry=entry,
-            out_dir=config.kamera_db_folder,
-            backup_dir=config.backup_db_folder,
-            error_dir=config.errors_db_folder
+            out_dir=out_dir,
+            backup_dir=backup_dir,
+            error_dir=error_dir,
         )
-
-
-def loop():
-    db_connection = database_manager.connect()
-    try:
-        while True:
-            with db_connection as cursor:
-                queued_entries = database_manager.get_queued_entries(cursor)
-            if not queued_entries:
-                time.sleep(5)
-                continue
-            log.info(f"Media: {queued_entries}")
-            for entry in queued_entries:
-                try:
-                    process_entry(
-                        entry=entry,
-                        out_dir=config.kamera_db_folder,
-                        backup_dir=config.backup_db_folder,
-                        error_dir=config.errors_db_folder
-                    )
-                finally:
-                    with db_connection as cursor:
-                        database_manager.remove_entry_from_queue(cursor, entry)
-    except KeyboardInterrupt:
-        sys.exit()
-    finally:
-        db_connection.close()
-
-
-def main(mode=None):
-    recognition.load_encodings(home_path=config.home)
-    cloud.dbx.users_get_current_account()
-    if mode == "test":
-        run_once()
-    else:
-        loop()
-
-
-if __name__ == '__main__':
-    main(*sys.argv[1:])

@@ -34,15 +34,13 @@ folder_names = {
 dbx = dropbox.Dropbox(config.DBX_TOKEN)
 
 
-def list_entries() -> KameraEntry:
-    path = config.uploads_db_folder
+def list_entries(path) -> KameraEntry:
     result = dbx.files_list_folder(
         path=path.as_posix(),
         include_media_info=True
     )
     while True:
         log.info(f"Entries in upload folder: {len(result.entries)}")
-        log.info(result)
         for entry in result.entries:
             # Ignore deleted files, folders
             if not (entry.path_lower.endswith(media_extensions) and
@@ -50,7 +48,7 @@ def list_entries() -> KameraEntry:
                 continue
 
             dbx_photo_metadata = entry.media_info.get_metadata() if entry.media_info else None
-            kamera_entry = KameraEntry.from_dbx_entry(entry, dbx_photo_metadata)
+            kamera_entry = KameraEntry(entry, dbx_photo_metadata)
             yield kamera_entry
 
         # Repeat only if there's more to do
