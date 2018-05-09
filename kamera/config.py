@@ -37,22 +37,22 @@ tag_swaps: Dict[str, str] = {}
 places_file = dbx_path / "config" / "places.yaml"
 
 
-class City:
-    def __init__(self, name, lat, lng, locations):
+class Area:
+    def __init__(self, name, lat, lng, spots):
         self.name: str = name
         self.lat: float = lat
         self.lng: float = lng
-        self.locations: List[Location] = [Location(**loc) for loc in locations]
+        self.spots: List[Spot] = [Spot(**spot) for spot in spots]
 
 
-class Location:
+class Spot:
     def __init__(self, name, lat, lng):
         self.name: str = name
         self.lat: float = lat
         self.lng: float = lng
 
 
-cities: List[City] = []
+areas: List[Area] = []
 
 people: Dict[str, List[np.array]] = defaultdict(list)
 
@@ -68,8 +68,8 @@ def load_settings(dbx):
 
 def load_location_data(dbx):
     _, response = dbx.files_download(places_file.as_posix())
-    data = yaml.load(response.raw.data)
-    cities.extend([City(**place) for place in data])
+    location_dict = yaml.load(response.raw.data)
+    areas.extend([Area(**location) for location in location_dict])
 
 
 def load_recognition_data(dbx):

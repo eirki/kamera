@@ -20,38 +20,38 @@ from kamera import config
 from kamera import recognition
 
 
-def get_closest_city(lat: float, lng: float) -> Optional[config.City]:
-    """Return city if image taken within 50 km from center of city"""
+def get_closest_area(lat: float, lng: float) -> Optional[config.Area]:
+    """Return area if image taken within 50 km from center of area"""
     distances = [
-        (great_circle((city.lat, city.lng), (lat, lng)).km, city)
-        for city in config.cities
+        (great_circle((area.lat, area.lng), (lat, lng)).km, area)
+        for area in config.areas
     ]
-    distance, closest_city = min(distances)
-    return closest_city if distance < 50 else None
+    distance, closest_area = min(distances)
+    return closest_area if distance < 50 else None
 
 
-def get_closest_location(lat: float, lng: float, city: config.City) -> Optional[config.Location]:
-    """Return closest location if image taken within 100 m"""
-    if not city.locations:
+def get_closest_spot(lat: float, lng: float, area: config.Area) -> Optional[config.Spot]:
+    """Return closest spot if image taken within 100 m"""
+    if not area.spots:
         return None
     distances = [
         (great_circle((loc.lat, loc.lng), (lat, lng)).meters, loc)
-        for loc in city.locations
+        for loc in area.spots
     ]
-    distance, closest_location = min(distances)
-    return closest_location if distance < 100 else None
+    distance, closest_spot = min(distances)
+    return closest_spot if distance < 100 else None
 
 
 def get_geo_tag(lat: float, lng: float) -> str:
     tagstring = None
     if lat and lng:
-        city = get_closest_city(lat, lng)
-        if city:
-            loc = get_closest_location(lat, lng, city)
+        area = get_closest_area(lat, lng)
+        if area:
+            loc = get_closest_spot(lat, lng, area)
             if loc:
-                tagstring = "/".join([city.name, loc.name])
+                tagstring = "/".join([area.name, loc.name])
             else:
-                tagstring = city.name
+                tagstring = area.name
     return tagstring
 
 
