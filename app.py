@@ -132,31 +132,27 @@ def webhook() -> str:
     return ""
 
 
-def main():
+def main(mode):
     cloud.dbx.users_get_current_account()
     config.load_settings(cloud.dbx)
-    if sys.argv[1] == "server":
+    if mode == "server":
         redis_lock.reset_all()
         app.run()
     else:
         config.load_location_data(cloud.dbx)
         config.load_recognition_data(cloud.dbx)
-        if sys.argv[1] == "worker":
+        if mode == "worker":
             with rq.Connection(conn):
                 worker = rq.Worker(list(map(rq.Queue, listen)))
                 worker.work()
-        elif sys.argv[1] == "run_once":
-            in_dir = sys.argv[2] if len(sys.argv) >= 3 else config.uploads_path
-            out_dir = sys.argv[3] if len(sys.argv) >= 4 else config.review_path
-            backup_dir = sys.argv[4] if len(sys.argv) >= 5 else config.backup_path
-            error_dir = sys.argv[5] if len(sys.argv) >= 6 else config.errors_path
+        elif mode == "run_once":
             task.run_once(
-                in_dir=in_dir,
-                out_dir=out_dir,
-                backup_dir=backup_dir,
-                error_dir=error_dir,
+                in_dir=config.uploads_path,
+                out_dir=config.review_path,
+                backup_dir=config.backup_path,
+                error_dir=config.errors_path,
             )
 
 
 if __name__ == '__main__':
-    main()
+    main(sys.argv[1])
