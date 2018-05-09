@@ -8,10 +8,11 @@ from hashlib import sha256
 import hmac
 import json
 
-from flask import Flask, request, abort
+from flask import Flask, request, abort, Response
 import flask_limiter
 import redis
 import rq
+import rq_dashboard
 import redis_lock
 
 from kamera import task
@@ -27,6 +28,8 @@ running_jobs_registry = rq.registry.StartedJobRegistry(connection=conn)
 
 app = Flask(__name__)
 
+
+# Define and apply rate limiting
 @app.errorhandler(429)
 def ratelimit_handler(e):
     log.info("rate limit exceeded, autoreturning 200 OK")
@@ -36,11 +39,39 @@ def ratelimit_handler(e):
 def get_dbx_user_from_req():
     try:
         return str(json.loads(request.data)["delta"]["users"][0])
-    except KeyError:
+    except (KeyError, json.decoder.JSONDecodeError):
         return flask_limiter.util.get_remote_address()
 
 
 limiter = flask_limiter.Limiter(app, key_func=get_dbx_user_from_req)
+
+
+# Define and apply rq-dashboard authenication,
+# from https://github.com/eoranged/rq-dashboard/issues/75
+def check_auth(username, password):
+    return (
+        username == config.rq_dashboard_username and
+        password == config.rq_dashboard_password
+    )
+
+
+def basic_auth():
+    """Ensure basic authorization."""
+    error_resp = Response(
+        'Could not verify your access level for that URL.\n'
+        'You have to login with proper credentials', 401,
+        {'WWW-Authenticate': 'Basic realm="Login Required"'}
+    )
+
+    auth = request.authorization
+    if not auth or not check_auth(auth.username, auth.password):
+        return error_resp
+
+
+app.config.from_object(rq_dashboard.default_settings)
+app.config["REDIS_URL"] = redis_url
+rq_dashboard.blueprint.before_request(basic_auth)
+app.register_blueprint(rq_dashboard.blueprint, url_prefix="/rq")
 
 
 @app.route('/')

@@ -5,10 +5,10 @@ import os
 from collections import defaultdict
 from pathlib import Path
 from io import BytesIO
-import numpy as np
 import json
 import yaml
 
+import numpy as np
 import face_recognition
 
 from typing import List, Dict
@@ -26,6 +26,9 @@ review_path = dbx_path / "Review"
 backup_path = dbx_path / "Backup"
 errors_path = dbx_path / "Error"
 config_path = dbx_path / "config"
+
+rq_dashboard_username = os.environ["rq_dashboard_username"]
+rq_dashboard_password = os.environ["rq_dashboard_password"]
 
 
 settings: Dict[str, str] = {}

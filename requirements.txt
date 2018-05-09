@@ -18,4 +18,5 @@ gunicorn
 redis
 python-redis-lock
 rq
+rq-dashboard
 PyYAML
