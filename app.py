@@ -19,6 +19,8 @@ from kamera import task
 from kamera import config
 from kamera import cloud
 
+from typing import Optional
+
 
 redis_url = os.environ['REDISTOGO_URL']
 conn = redis.from_url(redis_url)
@@ -31,12 +33,12 @@ app = Flask(__name__)
 
 # Define and apply rate limiting
 @app.errorhandler(429)
-def ratelimit_handler(e):
+def ratelimit_handler(e) -> str:
     log.info("rate limit exceeded, autoreturning 200 OK")
     return "rate limit exceeded"
 
 
-def get_dbx_user_from_req():
+def get_dbx_user_from_req() -> str:
     try:
         return str(json.loads(request.data)["delta"]["users"][0])
     except (KeyError, json.decoder.JSONDecodeError):
@@ -48,14 +50,14 @@ limiter = flask_limiter.Limiter(app, key_func=get_dbx_user_from_req)
 
 # Define and apply rq-dashboard authenication,
 # from https://github.com/eoranged/rq-dashboard/issues/75
-def check_auth(username, password):
+def check_auth(username, password) -> bool:
     return (
         username == config.rq_dashboard_username and
         password == config.rq_dashboard_password
     )
 
 
-def basic_auth():
+def basic_auth() -> Optional[Response]:
     """Ensure basic authorization."""
     error_resp = Response(
         'Could not verify your access level for that URL.\n'
@@ -64,8 +66,9 @@ def basic_auth():
     )
 
     auth = request.authorization
-    if not auth or not check_auth(auth.username, auth.password):
-        return error_resp
+    return (error_resp
+            if not auth or not check_auth(auth.username, auth.password)
+            else None)
 
 
 app.config.from_object(rq_dashboard.default_settings)
@@ -81,7 +84,7 @@ def hello_world() -> str:
 
 
 @app.route('/kamera', methods=['GET'])
-def verify():
+def verify() -> str:
     '''Respond to the webhook verification (GET request) by echoing back the challenge parameter.'''
 
     return request.args.get('challenge')
@@ -108,7 +111,6 @@ def webhook() -> str:
         queued_and_running_jobs = (
             set(queue.job_ids) | set(running_jobs_registry.get_job_ids())
         )
-        log.info(f"queued_and_running_jobs: {queued_and_running_jobs}")
         for entry in cloud.list_entries(config.uploads_path):
             if entry.name in queued_and_running_jobs:
                 continue
@@ -130,7 +132,7 @@ def webhook() -> str:
     return ""
 
 
-def main(mode):
+def main(mode: str) -> None:
     cloud.dbx.users_get_current_account()
     config.load_settings(cloud.dbx)
     if mode == "server":
