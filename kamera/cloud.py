@@ -6,6 +6,7 @@ from functools import partial
 import datetime as dt
 
 import dropbox
+import requests
 
 from kamera import config
 from kamera.mediatypes import KameraEntry
@@ -60,6 +61,9 @@ def list_entries(path) -> KameraEntry:
 
 def execute_transfer(transfer_func: Callable, destination: Path):
     try:
+        transfer_func()
+    except requests.exceptions.SSLError:
+        log.info("Encountered SSL error during transfer. Trying again")
         transfer_func()
     except dropbox.exceptions.BadInputError:
         log.info(f"Making folder: {destination}")
@@ -121,3 +125,11 @@ def upload_entry(
 
     log.info(f"{destination.stem}: Uploading to dest: {destination}")
     execute_transfer(transfer_func, destination)
+
+
+def download_entry(path_str: str):
+    try:
+        return dbx.files_download(path_str)
+    except requests.exceptions.SSLError:
+        log.info("Encountered SSL error during transfer. Trying again")
+        return dbx.files_download(path_str)

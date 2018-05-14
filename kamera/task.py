@@ -13,7 +13,6 @@ from timezonefinderL import TimezoneFinder
 from kamera import config
 from kamera import cloud
 from kamera import image_processing
-from kamera import recognition
 
 from kamera.mediatypes import KameraEntry
 
@@ -51,7 +50,7 @@ def process_entry(
         else:
             date = parse_date(entry)
 
-            orig_data, response = cloud.dbx.files_download(entry.path.as_posix())
+            orig_data, response = cloud.download_entry(entry.path.as_posix())
             new_data, exif_date = image_processing.main(
                 data=response.raw.data,
                 filepath=entry.path,
