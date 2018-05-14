@@ -67,7 +67,7 @@ def basic_auth() -> Optional[Response]:
 
     auth = request.authorization
     return (error_resp
-            if not auth or not check_auth(auth.username, auth.password)
+            if not (auth or check_auth(auth.username, auth.password))
             else None)
 
 

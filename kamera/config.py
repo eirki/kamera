@@ -8,8 +8,12 @@ from io import BytesIO
 import json
 import yaml
 
-import numpy as np
-import face_recognition
+try:
+    import numpy as np
+    import face_recognition
+except ImportError:
+    face_recognition = None
+    np_array = None
 
 from typing import List, Dict
 

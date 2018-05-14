@@ -4,8 +4,6 @@ from kamera.logger import log
 
 from pathlib import Path
 import datetime as dt
-import time
-import sys
 
 import pytz
 from timezonefinderL import TimezoneFinder

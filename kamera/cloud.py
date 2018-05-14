@@ -11,7 +11,7 @@ import requests
 from kamera import config
 from kamera.mediatypes import KameraEntry
 
-from typing import Callable
+from typing import Callable, Generator, Optional
 from pathlib import Path
 
 
@@ -35,7 +35,7 @@ folder_names = {
 dbx = dropbox.Dropbox(config.DBX_TOKEN)
 
 
-def list_entries(path) -> KameraEntry:
+def list_entries(path: Path) -> Generator[KameraEntry, None, None]:
     result = dbx.files_list_folder(
         path=path.as_posix(),
         include_media_info=True
@@ -74,7 +74,7 @@ def execute_transfer(transfer_func: Callable, destination: Path):
 def move_entry(
         from_path: Path,
         out_dir: Path,
-        date: dt.datetime = None):
+        date: Optional[dt.datetime] = None):
     if date is not None:
         destination = out_dir / str(date.year) / folder_names[date.month] / from_path.name
     else:
