@@ -13,7 +13,7 @@ from geopy.distance import great_circle
 from resizeimage import resizeimage
 
 from pathlib import Path
-from typing import List, Union, Optional, Tuple
+from typing import List, Optional, Tuple
 import dropbox
 
 from kamera import config
@@ -22,10 +22,12 @@ from kamera import recognition
 
 def get_closest_area(lat: float, lng: float) -> Optional[config.Area]:
     """Return area if image taken within 50 km from center of area"""
+    print(config.areas)
     distances = [
         (great_circle((area.lat, area.lng), (lat, lng)).km, area)
         for area in config.areas
     ]
+    print(distances)
     distance, closest_area = min(distances)
     return closest_area if distance < 50 else None
 
@@ -35,21 +37,21 @@ def get_closest_spot(lat: float, lng: float, area: config.Area) -> Optional[conf
     if not area.spots:
         return None
     distances = [
-        (great_circle((loc.lat, loc.lng), (lat, lng)).meters, loc)
-        for loc in area.spots
+        (great_circle((spot.lat, spot.lng), (lat, lng)).meters, spot)
+        for spot in area.spots
     ]
     distance, closest_spot = min(distances)
     return closest_spot if distance < 100 else None
 
 
-def get_geo_tag(lat: float, lng: float) -> str:
+def get_geo_tag(lat: float, lng: float) -> Optional[str]:
     tagstring = None
     if lat and lng:
         area = get_closest_area(lat, lng)
         if area:
-            loc = get_closest_spot(lat, lng, area)
-            if loc:
-                tagstring = "/".join([area.name, loc.name])
+            spot = get_closest_spot(lat, lng, area)
+            if spot:
+                tagstring = "/".join([area.name, spot.name])
             else:
                 tagstring = area.name
     return tagstring
@@ -98,9 +100,9 @@ def add_tag(data: bytes, tags: List[str]) -> bytes:
 def main(data: bytes,
          filepath: Path,
          date: dt.datetime,
-         location: Union[dropbox.files.GpsCoordinates, None],
-         dimensions: Union[dropbox.files.Dimensions, None]
-         ) -> Tuple[bytes, Union[dt.datetime, None]]:
+         location: Optional[dropbox.files.GpsCoordinates],
+         dimensions: Optional[dropbox.files.Dimensions]
+         ) -> Tuple[Optional[bytes], Optional[dt.datetime]]:
     data_changed = False
     name = filepath.stem
 

@@ -16,11 +16,8 @@ from kamera.mediatypes import KameraEntry
 
 
 def parse_date(entry: KameraEntry) -> dt.datetime:
-
     naive_date = entry.time_taken if entry.time_taken is not None else entry.client_modified
-
     utc_date = naive_date.replace(tzinfo=dt.timezone.utc)
-
     if entry.location is not None:
         img_tz = TimezoneFinder().timezone_at(
             lat=entry.location.latitude,
@@ -29,7 +26,6 @@ def parse_date(entry: KameraEntry) -> dt.datetime:
         if img_tz:
             local_date = utc_date.astimezone(tz=pytz.timezone(img_tz))
             return local_date
-
     local_date = utc_date.astimezone(tz=pytz.timezone(config.settings["default_tz"]))
     return local_date
 
@@ -48,7 +44,7 @@ def process_entry(
         else:
             date = parse_date(entry)
 
-            orig_data, response = cloud.download_entry(entry.path.as_posix())
+            _, response = cloud.download_entry(entry.path.as_posix())
             new_data, exif_date = image_processing.main(
                 data=response.raw.data,
                 filepath=entry.path,

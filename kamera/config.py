@@ -1,20 +1,18 @@
 #! /usr/bin/env python3.6
 # coding: utf-8
-
 import os
 from collections import defaultdict
 from pathlib import Path
 from io import BytesIO
 import json
-import yaml
 
+import yaml
 from dotenv import load_dotenv
 try:
     import numpy as np
     import face_recognition
 except ImportError:
     face_recognition = None
-    np_array = None
 
 from typing import List, Dict
 
@@ -51,12 +49,18 @@ class Area:
         self.lng: float = lng
         self.spots: List[Spot] = [Spot(**spot) for spot in spots]
 
+    def __repr__(self):
+        return self.name
+
 
 class Spot:
     def __init__(self, name, lat, lng):
         self.name: str = name
         self.lat: float = lat
         self.lng: float = lng
+
+    def __repr__(self):
+        return self.name
 
 
 areas: List[Area] = []
