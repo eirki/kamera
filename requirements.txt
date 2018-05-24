@@ -21,4 +21,4 @@ python-redis-lock
 rq
 rq-dashboard
 PyYAML
-dotenv
+python-dotenv
