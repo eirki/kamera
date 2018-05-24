@@ -8,6 +8,7 @@ from io import BytesIO
 import json
 import yaml
 
+from dotenv import load_dotenv
 try:
     import numpy as np
     import face_recognition
@@ -17,6 +18,8 @@ except ImportError:
 
 from typing import List, Dict
 
+load_dotenv()
+
 app_id = os.environ["app_id"]
 
 flask_rate_limit = os.environ["flask_rate_limit"]
@@ -24,7 +27,7 @@ flask_rate_limit = os.environ["flask_rate_limit"]
 APP_SECRET = os.environ["APP_SECRET"].encode()
 DBX_TOKEN = os.environ["DBX_TOKEN"]
 
-dbx_path = Path("/Apps/fotokamera")
+dbx_path = Path(os.environ["dbx_path"])
 uploads_path = dbx_path / "Uploads"
 review_path = dbx_path / "Review"
 backup_path = dbx_path / "Backup"
