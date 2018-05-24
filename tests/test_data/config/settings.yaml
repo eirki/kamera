@@ -1,0 +1,5 @@
+---
+default_tz: "Europe/Paris"
+recognition_tolerance: 0.4
+tag_swaps:
+    Paris/10e arrondissement: "Holiday/France"
