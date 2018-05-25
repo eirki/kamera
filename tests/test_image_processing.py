@@ -14,7 +14,7 @@ from io import BytesIO
 
 from kamera import image_processing
 
-from typing import Tuple
+from typing import Tuple, Optional
 
 test_images_path = Path.cwd() / "tests" / "test_images"
 
@@ -58,9 +58,9 @@ def assert_image_attrs_identical(output_data: bytes, desired_data: bytes):
 
 def fetch_processing_output(
         filename: str,
-        dimensions=None,
-        location=None,
-        date=None
+        dimensions: Optional[dropbox.files.Dimensions]=None,
+        location: Optional[dropbox.files.GpsCoordinates]=None,
+        date: Optional[dt.datetime]=None
         ) -> bytes:
     filepath_input = test_images_path / "input" / filename
     with open(filepath_input, "rb") as file:
@@ -90,7 +90,6 @@ def test_tag_spot():
     output = fetch_processing_output(filename, location=loc)
     desired_output = fetch_desired_output(filename)
     assert_image_attrs_identical(output, desired_output)
-    assert output == desired_output
 
 
 @pytest.mark.usefixtures("load_settings", "load_location_data")
@@ -100,7 +99,6 @@ def test_tag_area():
     output = fetch_processing_output(filename, location=loc)
     desired_output = fetch_desired_output(filename)
     assert_image_attrs_identical(output, desired_output)
-    assert output == desired_output
 
 
 @pytest.mark.usefixtures("load_settings")
@@ -114,7 +112,6 @@ def test_png():
     output = fetch_processing_output(filename, date=date)
     desired_output = fetch_desired_output("filetype.jpg")
     assert_image_attrs_identical(output, desired_output)
-    assert output == desired_output
 
 
 # def test_recognition():
@@ -128,7 +125,6 @@ def test_tag_swap():
     output = fetch_processing_output(filename, location=loc)
     desired_output = fetch_desired_output(filename)
     assert_image_attrs_identical(output, desired_output)
-    assert output == desired_output
 
 
 @pytest.mark.usefixtures("load_settings")
@@ -138,7 +134,6 @@ def test_resize():
     output = fetch_processing_output(filename, dimensions=dimensions)
     desired_output = fetch_desired_output(filename)
     assert_image_attrs_identical(output, desired_output)
-    assert output == desired_output
 
 
 @pytest.mark.usefixtures("load_settings", "load_location_data")
@@ -149,7 +144,6 @@ def test_resize_tag_location():
     output = fetch_processing_output(filename, dimensions=dimensions, location=loc)
     desired_output = fetch_desired_output(filename)
     assert_image_attrs_identical(output, desired_output)
-    assert output == desired_output
 
 
 @pytest.mark.usefixtures("load_settings")
@@ -163,4 +157,3 @@ def test_add_date():
     output = fetch_processing_output(filename, date=date)
     desired_output = fetch_desired_output(filename)
     assert_image_attrs_identical(output, desired_output)
-    assert output == desired_output
