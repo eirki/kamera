@@ -15,7 +15,7 @@ from typing import Callable, Generator, Optional
 from pathlib import Path
 
 
-media_extensions = (".jpg", ".jpeg", ".png", ".mp4", ".gif")
+media_extensions = (".jpg", ".jpeg", ".png", ".mp4", ".gif", ".mov")
 
 folder_names = {
     1: "01 (Januar)",
