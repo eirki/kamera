@@ -2,6 +2,7 @@
 # coding: utf-8
 from types import SimpleNamespace
 from collections import defaultdict
+from pathlib import Path
 
 from kamera import config
 
