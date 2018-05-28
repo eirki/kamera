@@ -38,7 +38,7 @@ def process_entry(
     log.info(f"{entry}: Processing")
     start_time = dt.datetime.now()
     try:
-        if entry.path.suffix.lower() in {".mp4", ".gif"}:
+        if entry.path.suffix.lower() in {".mp4", ".mov", ".gif"}:
             date = parse_date(entry)
             cloud.copy_entry(entry.path, out_dir, date)
         else:

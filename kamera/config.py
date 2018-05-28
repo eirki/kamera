@@ -15,8 +15,10 @@ except ImportError:
     face_recognition = None
 
 from typing import List, Dict
+from dropbox import Dropbox
 
-load_dotenv()
+env_path = Path('.') / '.env'
+load_dotenv(dotenv_path=env_path)
 
 app_id = os.environ["app_id"]
 
@@ -43,7 +45,7 @@ places_file = dbx_path / "config" / "places.yaml"
 
 
 class Area:
-    def __init__(self, name, lat, lng, spots):
+    def __init__(self, name, lat: float, lng: float, spots: List[dict]) -> None:
         self.name: str = name
         self.lat: float = lat
         self.lng: float = lng
@@ -54,7 +56,7 @@ class Area:
 
 
 class Spot:
-    def __init__(self, name, lat, lng):
+    def __init__(self, name: str, lat: float, lng: float) -> None:
         self.name: str = name
         self.lat: float = lat
         self.lng: float = lng
@@ -68,7 +70,7 @@ areas: List[Area] = []
 people: Dict[str, List[np.array]] = defaultdict(list)
 
 
-def load_settings(dbx):
+def load_settings(dbx: Dropbox):
     settings_file = config_path / "settings.yaml"
     _, response = dbx.files_download(settings_file.as_posix())
     settings_data = yaml.load(response.raw.data)
@@ -77,13 +79,13 @@ def load_settings(dbx):
     tag_swaps.update(settings_data.pop("tag_swaps"))
 
 
-def load_location_data(dbx):
+def load_location_data(dbx: Dropbox):
     _, response = dbx.files_download(places_file.as_posix())
     location_dict = yaml.load(response.raw.data)
     areas.extend([Area(**location) for location in location_dict])
 
 
-def load_recognition_data(dbx):
+def load_recognition_data(dbx: Dropbox):
     root_path = config_path / "people"
     result = dbx.files_list_folder(
         path=root_path.as_posix(),
@@ -106,7 +108,7 @@ def load_recognition_data(dbx):
     }
     for img in unencoded_imgs:
         name = img.parents[0].name
-        encoding = _get_facial_encoding(img)
+        encoding = _get_facial_encoding(dbx, img)
         json_encoded = json.dumps(encoding.tolist())
         dbx.files_upload(
             f=json_encoded.encode(),
@@ -115,7 +117,7 @@ def load_recognition_data(dbx):
         people[name].append(encoding)
 
 
-def _get_facial_encoding(dbx, img_path):
+def _get_facial_encoding(dbx: Dropbox, img_path: Path):
     _, response = dbx.files_download(img_path.as_posix())
     loaded_img = face_recognition.load_image_file(BytesIO(response.raw.data))
     encodings = face_recognition.face_encodings(loaded_img)

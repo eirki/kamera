@@ -15,7 +15,7 @@ from typing import Callable, Generator, Optional
 from pathlib import Path
 
 
-media_extensions = (".jpg", ".jpeg", ".png", ".mp4", ".gif")
+media_extensions = (".jpg", ".jpeg", ".png", ".mp4", ".gif", ".mov")
 
 folder_names = {
     1: "01 (Januar)",
@@ -59,7 +59,7 @@ def list_entries(path: Path) -> Generator[KameraEntry, None, None]:
             break
 
 
-def execute_transfer(transfer_func: Callable, destination: Path):
+def _execute_transfer(transfer_func: Callable, destination: Path):
     try:
         transfer_func()
     except requests.exceptions.SSLError:
@@ -88,7 +88,7 @@ def move_entry(
     )
 
     log.info(f"{from_path.stem}: Moving to dest: {destination}")
-    execute_transfer(transfer_func, destination)
+    _execute_transfer(transfer_func, destination)
 
 
 def copy_entry(
@@ -105,7 +105,7 @@ def copy_entry(
     )
 
     log.info(f"{from_path.stem}: Copying to dest: {destination}")
-    execute_transfer(transfer_func, destination)
+    _execute_transfer(transfer_func, destination)
 
 
 def upload_entry(
@@ -124,7 +124,7 @@ def upload_entry(
     )
 
     log.info(f"{destination.stem}: Uploading to dest: {destination}")
-    execute_transfer(transfer_func, destination)
+    _execute_transfer(transfer_func, destination)
 
 
 def download_entry(path_str: str):
