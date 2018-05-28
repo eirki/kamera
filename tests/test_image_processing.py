@@ -114,8 +114,12 @@ def test_png():
     assert_image_attrs_identical(output, desired_output)
 
 
-# def test_recognition():
-#     pass
+@pytest.mark.usefixtures("load_settings", "load_recognition_data")
+def test_recognition():
+    filename = "recognition.jpg"
+    output = fetch_processing_output(filename)
+    desired_output = fetch_desired_output(filename)
+    assert_image_attrs_identical(output, desired_output)
 
 
 @pytest.mark.usefixtures("load_settings", "load_location_data")

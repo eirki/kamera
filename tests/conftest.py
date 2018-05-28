@@ -31,15 +31,19 @@ def load_recognition_data():
 
 
 class MockDropbox:
-    def files_download(self, path):
-        with open(path) as file:
+    def files_download(self, path: Path):
+        with open(path, "rb") as file:
             data = file.read()
         filemetadata = None
         response = SimpleNamespace(raw=SimpleNamespace(data=data))
         return filemetadata, response
 
-    def files_list_folder(self):
-        pass
+    def files_list_folder(self, path: str, recursive: bool):
+        path_obj = Path(path)
+        files = path_obj.rglob("*") if recursive else path_obj.iterdir()
+        mock_entries = [SimpleNamespace(path_display=file) for file in files]
+        mock_result = SimpleNamespace(entries=mock_entries)
+        return mock_result
 
     def files_upload(self):
         pass
