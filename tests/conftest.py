@@ -47,7 +47,7 @@ class MockDropbox:
         return mock_result
 
     def files_upload(self, f: bytes, path: str):
-        with open(path, "rb") as file:
+        with open(path, "wb") as file:
             file.write(f)
 
     def users_get_current_account(self):
