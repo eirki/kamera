@@ -46,8 +46,9 @@ class MockDropbox:
         mock_result = SimpleNamespace(entries=mock_entries)
         return mock_result
 
-    def files_upload(self):
-        pass
+    def files_upload(self, f: bytes, path: str):
+        with open(path, "rb") as file:
+            file.write(f)
 
     def users_get_current_account(self):
         pass
