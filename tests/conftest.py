@@ -49,8 +49,7 @@ def no_img_processing(monkeypatch):
 
 def no_img_processing_mock(*args, **kwargs):
     new_data = None
-    exif_date = None
-    return new_data, exif_date
+    return new_data
 
 
 @pytest.fixture()
@@ -60,8 +59,7 @@ def data_from_img_processing(monkeypatch):
 
 def data_from_img_processing_mock(*args, **kwargs):
     new_data = b"new_file_content"
-    exif_date = None
-    return new_data, exif_date
+    return new_data
 
 
 @pytest.fixture()

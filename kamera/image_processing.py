@@ -102,7 +102,7 @@ def main(data: bytes,
          date: dt.datetime,
          location: Optional[dropbox.files.GpsCoordinates],
          dimensions: Optional[dropbox.files.Dimensions]
-         ) -> Tuple[Optional[bytes], Optional[dt.datetime]]:
+         ) -> Optional[bytes]:
     data_changed = False
     name = filepath.stem
 
@@ -123,12 +123,10 @@ def main(data: bytes,
 
     # Add date to metadata object if missing
     try:
-        orig_datestring = exif_metadata["Exif"][piexif.ExifIFD.DateTimeOriginal].decode()
-        exif_date = dt.datetime.strptime(orig_datestring, "%Y:%m:%d %H:%M:%S")
+        exif_metadata["Exif"][piexif.ExifIFD.DateTimeOriginal].decode()
     except KeyError:
         log.info(f"{name}: Inserting date {date}")
         add_date(date, exif_metadata)
-        exif_date = None
         data_changed = True
 
     tags = []
@@ -155,7 +153,7 @@ def main(data: bytes,
 
     # If no convertion, resizing,date fixing, or tagging, return only the parsed image date
     if not data_changed:
-        return None, exif_date
+        return None
 
     # Add metadata from metadata object to image data
     metadata_bytes = piexif.dump(exif_metadata)
@@ -163,4 +161,4 @@ def main(data: bytes,
     piexif.insert(metadata_bytes, data, new_file)
     new_data = new_file.getvalue()
 
-    return new_data, exif_date
+    return new_data

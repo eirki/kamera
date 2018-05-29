@@ -43,15 +43,13 @@ def process_entry(
             cloud.copy_entry(entry.path, out_dir, date)
         elif entry.path.suffix.lower() in config.image_extensions:
             _, response = cloud.download_entry(entry.path.as_posix())
-            new_data, exif_date = image_processing.main(
+            new_data = image_processing.main(
                 data=response.raw.data,
                 filepath=entry.path,
                 date=date,
                 location=entry.location,
                 dimensions=entry.dimensions,
             )
-            if exif_date is not None:
-                date = exif_date
 
             if new_data is None:
                 cloud.copy_entry(entry.path, out_dir, date)

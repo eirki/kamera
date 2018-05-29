@@ -71,7 +71,7 @@ def fetch_processing_output(
     with open(filepath_input, "rb") as file:
         input_data = file.read()
 
-    output_data, _ = image_processing.main(
+    output_data = image_processing.main(
         data=input_data,
         filepath=test_images_path / "input" / filename,
         dimensions=dimensions,
