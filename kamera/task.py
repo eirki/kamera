@@ -38,10 +38,9 @@ def process_entry(
     log.info(f"{entry}: Processing")
     start_time = dt.datetime.now()
     try:
-            date = parse_date(entry)
+        date = parse_date(entry)
         if entry.path.suffix.lower() in config.video_extensions:
             cloud.copy_entry(entry.path, out_dir, date)
-            date = parse_date(entry)
         elif entry.path.suffix.lower() in config.image_extensions:
             _, response = cloud.download_entry(entry.path.as_posix())
             new_data, exif_date = image_processing.main(
