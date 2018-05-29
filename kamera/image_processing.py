@@ -151,7 +151,7 @@ def main(data: bytes,
         data = add_tag(data, tags)
         data_changed = True
 
-    # If no convertion, resizing,date fixing, or tagging, return only the parsed image date
+    # If no convertion, resizing,date fixing, or tagging, return
     if not data_changed:
         return None
 

@@ -124,8 +124,9 @@ class MockCloud:
             date: dt.datetime):
         log.info("upload_entry")
         to_path = out_dir / from_path.name
+        datebytes = date.strftime("%Y-%m-%d_%H:%M:%S %Z").encode()
         with open(to_path, "wb") as file:
-            file.write(new_data)
+            file.write(datebytes + b" " + new_data)
 
     def download_entry(self, path_str: str):
         log.info("download_entry")
