@@ -8,7 +8,7 @@ from hashlib import sha256
 import hmac
 import json
 
-from flask import Flask, request, abort, Response
+from flask import Flask, request, abort, Response, g
 import flask_limiter
 import redis
 import rq
@@ -17,7 +17,6 @@ import redis_lock
 
 from kamera import task
 from kamera import config
-from kamera import cloud
 
 from typing import Optional
 
@@ -29,6 +28,14 @@ listen = ['default']
 running_jobs_registry = rq.registry.StartedJobRegistry(connection=conn)
 
 app = Flask(__name__)
+
+
+def get_cloud():
+    cloud = getattr(g, '_cloud', None)
+    if cloud is None:
+        cloud = task.Cloud()
+        g._cloud = cloud
+    return cloud
 
 
 # Define and apply rate limiting
@@ -106,8 +113,8 @@ def webhook() -> str:
     else:
         log.info("User request already being processed, autoreturning 200 OK")
         return "User request already being processed"
-
     try:
+        cloud = get_cloud()
         queued_and_running_jobs = (
             set(queue.job_ids) | set(running_jobs_registry.get_job_ids())
         )
@@ -119,6 +126,7 @@ def webhook() -> str:
                 func=task.process_entry,
                 args=(
                     entry,
+                    cloud,
                     config.review_path,
                     config.backup_path,
                     config.errors_path
@@ -133,12 +141,14 @@ def webhook() -> str:
 
 
 def main(mode: str) -> None:
-    cloud.dbx.users_get_current_account()
-    config.load_settings(cloud.dbx)
     if mode == "server":
+        cloud = get_cloud()
+        config.load_settings(cloud.dbx)
         redis_lock.reset_all()
         app.run()
     else:
+        cloud = task.Cloud()
+        config.load_settings(cloud.dbx)
         config.load_location_data(cloud.dbx)
         config.load_recognition_data(cloud.dbx)
         if mode == "worker":
@@ -147,6 +157,7 @@ def main(mode: str) -> None:
                 worker.work()
         elif mode == "run_once":
             task.run_once(
+                cloud=cloud,
                 in_dir=config.uploads_path,
                 out_dir=config.review_path,
                 backup_dir=config.backup_path,

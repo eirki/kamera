@@ -37,11 +37,6 @@ def load_recognition_data():
     config.load_recognition_data(mock_dbx)
 
 
-@pytest.fixture(autouse=True)
-def no_dbx(monkeypatch):
-    monkeypatch.setattr('kamera.task.cloud', MockCloud())
-
-
 @pytest.fixture()
 def no_img_processing(monkeypatch):
     monkeypatch.setattr('kamera.task.image_processing.main', no_img_processing_mock)
@@ -132,3 +127,8 @@ class MockCloud:
         log.info("download_entry")
         entry = self.dbx.files_download(path_str)
         return entry
+
+
+@pytest.fixture()
+def mock_cloud():
+    return MockCloud()
