@@ -1,12 +1,18 @@
 #! /usr/bin/env python3.6
 # coding: utf-8
+from kamera.logger import log
+
 from types import SimpleNamespace
 from collections import defaultdict
 from pathlib import Path
+import datetime as dt
+import shutil
+
+import pytest
 
 from kamera import config
 
-import pytest
+from typing import Optional
 
 
 @pytest.fixture()
@@ -29,6 +35,42 @@ def load_recognition_data():
     config.people = defaultdict(list)
     mock_dbx = MockDropbox()
     config.load_recognition_data(mock_dbx)
+
+
+@pytest.fixture(autouse=True)
+def no_dbx(monkeypatch):
+    monkeypatch.setattr('kamera.task.cloud', MockCloud())
+
+
+@pytest.fixture()
+def no_img_processing(monkeypatch):
+    monkeypatch.setattr('kamera.task.image_processing.main', no_img_processing_mock)
+
+
+def no_img_processing_mock(*args, **kwargs):
+    new_data = None
+    exif_date = None
+    return new_data, exif_date
+
+
+@pytest.fixture()
+def data_from_img_processing(monkeypatch):
+    monkeypatch.setattr('kamera.task.image_processing.main', data_from_img_processing_mock)
+
+
+def data_from_img_processing_mock(*args, **kwargs):
+    new_data = b"new_file_content"
+    exif_date = None
+    return new_data, exif_date
+
+
+@pytest.fixture()
+def error_img_processing(monkeypatch):
+    monkeypatch.setattr('kamera.task.image_processing.main', error_img_processing_mock)
+
+
+def error_img_processing_mock(*args, **kwargs):
+    raise Exception("This is an excpetion from mock image processing")
 
 
 class MockDropbox:
@@ -58,20 +100,36 @@ class MockCloud:
     def __init__(self):
         self.dbx = MockDropbox()
 
-    def list_entries(self):
-        pass
+    def move_entry(
+            self,
+            from_path: Path,
+            out_dir: Path,
+            date: Optional[dt.datetime] = None):
+        log.info("move_entry")
+        to_path = out_dir / from_path.name
+        shutil.move(from_path.as_posix(), to_path.as_posix())
 
-    def execute_transfer(self):
-        pass
+    def copy_entry(
+            self,
+            from_path: Path,
+            out_dir: Path,
+            date: dt.datetime):
+        log.info("copy_entry")
+        to_path = out_dir / from_path.name
+        shutil.copy2(from_path.as_posix(), to_path.as_posix())
 
-    def move_entry(self):
-        pass
+    def upload_entry(
+            self,
+            from_path: Path,
+            new_data: bytes,
+            out_dir: Path,
+            date: dt.datetime):
+        log.info("upload_entry")
+        to_path = out_dir / from_path.name
+        with open(to_path, "wb") as file:
+            file.write(new_data)
 
-    def copy_entry(self):
-        pass
-
-    def upload_entry(self):
-        pass
-
-    def download_entry(self):
-        pass
+    def download_entry(self, path_str: str):
+        log.info("download_entry")
+        entry = self.dbx.files_download(path_str)
+        return entry
