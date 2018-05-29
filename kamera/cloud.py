@@ -15,8 +15,6 @@ from typing import Callable, Generator, Optional
 from pathlib import Path
 
 
-media_extensions = (".jpg", ".jpeg", ".png", ".mp4", ".gif", ".mov")
-
 folder_names = {
     1: "01 (Januar)",
     2: "02 (Februar)",
@@ -44,7 +42,7 @@ def list_entries(path: Path) -> Generator[KameraEntry, None, None]:
         log.info(f"Entries in upload folder: {len(result.entries)}")
         for entry in result.entries:
             # Ignore deleted files, folders
-            if not (entry.path_lower.endswith(media_extensions) and
+            if not (entry.path_lower.endswith(config.media_extensions) and
                     isinstance(entry, dropbox.files.FileMetadata)):
                 continue
 

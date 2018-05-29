@@ -44,6 +44,11 @@ tag_swaps: Dict[str, str] = {}
 places_file = dbx_path / "config" / "places.yaml"
 
 
+image_extensions = {".jpg", ".jpeg", ".png"}
+video_extensions = {".mp4", ".mov", ".gif"}
+media_extensions = tuple(image_extensions | video_extensions)
+
+
 class Area:
     def __init__(self, name, lat: float, lng: float, spots: List[dict]) -> None:
         self.name: str = name

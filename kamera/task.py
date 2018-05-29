@@ -38,12 +38,11 @@ def process_entry(
     log.info(f"{entry}: Processing")
     start_time = dt.datetime.now()
     try:
-        if entry.path.suffix.lower() in {".mp4", ".mov", ".gif"}:
             date = parse_date(entry)
+        if entry.path.suffix.lower() in config.video_extensions:
             cloud.copy_entry(entry.path, out_dir, date)
-        else:
             date = parse_date(entry)
-
+        elif entry.path.suffix.lower() in config.image_extensions:
             _, response = cloud.download_entry(entry.path.as_posix())
             new_data, exif_date = image_processing.main(
                 data=response.raw.data,
@@ -59,7 +58,8 @@ def process_entry(
                 cloud.copy_entry(entry.path, out_dir, date)
             else:
                 cloud.upload_entry(entry.path, new_data, out_dir, date)
-
+        else:
+            return
         cloud.move_entry(entry.path, out_dir=backup_dir, date=date)
     except Exception:
         log.exception(f"Exception occured, moving to Error subfolder: {entry}")
