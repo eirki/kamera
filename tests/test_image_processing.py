@@ -16,6 +16,11 @@ from kamera import image_processing
 
 from typing import Tuple, Optional
 
+try:
+    import face_recognition
+except ImportError:
+    face_recognition = None
+
 test_images_path = Path.cwd() / "tests" / "test_images"
 
 
@@ -114,14 +119,6 @@ def test_png():
     assert_image_attrs_identical(output, desired_output)
 
 
-@pytest.mark.usefixtures("load_settings", "load_recognition_data")
-def test_recognition():
-    filename = "recognition.jpg"
-    output = fetch_processing_output(filename)
-    desired_output = fetch_desired_output(filename)
-    assert_image_attrs_identical(output, desired_output)
-
-
 @pytest.mark.usefixtures("load_settings", "load_location_data")
 def test_tag_swap():
     filename = "tag_swap.jpg"
@@ -161,3 +158,12 @@ def test_add_date():
     output = fetch_processing_output(filename, date=date)
     desired_output = fetch_desired_output(filename)
     assert_image_attrs_identical(output, desired_output)
+
+
+if face_recognition is not None:
+    @pytest.mark.usefixtures("load_settings", "load_recognition_data")
+    def test_recognition():
+        filename = "recognition.jpg"
+        output = fetch_processing_output(filename)
+        desired_output = fetch_desired_output(filename)
+        assert_image_attrs_identical(output, desired_output)
