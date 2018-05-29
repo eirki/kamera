@@ -89,7 +89,7 @@ def fetch_desired_output(filename: str) -> bytes:
 
 
 @pytest.mark.usefixtures("load_settings", "load_location_data")
-def test_tag_spot():
+def test_tag_spot() -> None:
     filename = "spot.jpg"
     loc = dropbox.files.GpsCoordinates(latitude=48.8662694, longitude=2.3242583)
     output = fetch_processing_output(filename, location=loc)
@@ -98,7 +98,7 @@ def test_tag_spot():
 
 
 @pytest.mark.usefixtures("load_settings", "load_location_data")
-def test_tag_area():
+def test_tag_area() -> None:
     filename = "area.jpg"
     loc = dropbox.files.GpsCoordinates(latitude=48.8715194, longitude=2.3372444)
     output = fetch_processing_output(filename, location=loc)
@@ -107,7 +107,7 @@ def test_tag_area():
 
 
 @pytest.mark.usefixtures("load_settings")
-def test_png():
+def test_png() -> None:
     filename = "filetype.png"
     date = (
         dt.datetime.strptime("2018-05-14 16:07:59", "%Y-%m-%d %H:%M:%S")
@@ -120,7 +120,7 @@ def test_png():
 
 
 @pytest.mark.usefixtures("load_settings", "load_location_data")
-def test_tag_swap():
+def test_tag_swap() -> None:
     filename = "tag_swap.jpg"
     loc = dropbox.files.GpsCoordinates(latitude=48.8698583, longitude=2.3523166)
     output = fetch_processing_output(filename, location=loc)
@@ -129,7 +129,7 @@ def test_tag_swap():
 
 
 @pytest.mark.usefixtures("load_settings")
-def test_resize():
+def test_resize() -> None:
     filename = "resize.jpg"
     dimensions = dropbox.files.Dimensions(height=3024, width=4032)
     output = fetch_processing_output(filename, dimensions=dimensions)
@@ -138,7 +138,7 @@ def test_resize():
 
 
 @pytest.mark.usefixtures("load_settings", "load_location_data")
-def test_resize_tag_location():
+def test_resize_tag_location() -> None:
     filename = "resize, spot.jpg"
     dimensions = dropbox.files.Dimensions(height=3024, width=4032)
     loc = dropbox.files.GpsCoordinates(latitude=48.8662694, longitude=2.3242583)
@@ -148,7 +148,7 @@ def test_resize_tag_location():
 
 
 @pytest.mark.usefixtures("load_settings")
-def test_add_date():
+def test_add_date() -> None:
     filename = "date.jpeg"
     date = (
         dt.datetime.strptime("2018-05-14 16:10:09", "%Y-%m-%d %H:%M:%S")
@@ -162,7 +162,7 @@ def test_add_date():
 
 if face_recognition is not None:
     @pytest.mark.usefixtures("load_settings", "load_recognition_data")
-    def test_recognition():
+    def test_recognition() -> None:
         filename = "recognition.jpg"
         output = fetch_processing_output(filename)
         desired_output = fetch_desired_output(filename)

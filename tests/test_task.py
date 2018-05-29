@@ -15,14 +15,14 @@ from kamera import mediatypes
 from typing import Tuple
 
 
-def make_all_temp_folders(root_dir: Path):
+def make_all_temp_folders(root_dir: Path) -> None:
     os.mkdir(root_dir / "Uploads")  # in_dir
     os.mkdir(root_dir / "Review")  # out_dir
     os.mkdir(root_dir / "Backup")  # backup_dir
     os.mkdir(root_dir / "Error")  # error_dir
 
 
-def run_mocked_image_processing_main(ext: str, root_dir: Path):
+def run_mocked_image_processing_main(ext: str, root_dir: Path) -> None:
     in_file = root_dir / "Uploads" / f"in_file{ext}"
     with open(in_file, "w") as file:
         file.write("in_file_content")
@@ -78,7 +78,7 @@ def assert_contents_unchanged(root_dir: Path, subfolder: str) -> None:
 
 
 @pytest.mark.usefixtures("load_settings", "data_from_img_processing")
-def test_mp4(tmpdir):
+def test_mp4(tmpdir) -> None:
     root_dir = Path(tmpdir)
     make_all_temp_folders(root_dir)
     run_mocked_image_processing_main(".mp4", root_dir)
@@ -88,7 +88,7 @@ def test_mp4(tmpdir):
 
 
 @pytest.mark.usefixtures("load_settings", "data_from_img_processing")
-def test_gif(tmpdir):
+def test_gif(tmpdir) -> None:
     root_dir = Path(tmpdir)
     make_all_temp_folders(root_dir)
     run_mocked_image_processing_main(".gif", root_dir)
@@ -98,7 +98,7 @@ def test_gif(tmpdir):
 
 
 @pytest.mark.usefixtures("load_settings", "data_from_img_processing")
-def test_mov(tmpdir):
+def test_mov(tmpdir) -> None:
     root_dir = Path(tmpdir)
     make_all_temp_folders(root_dir)
     run_mocked_image_processing_main(".mov", root_dir)
@@ -108,7 +108,7 @@ def test_mov(tmpdir):
 
 
 @pytest.mark.usefixtures("load_settings", "data_from_img_processing")
-def test_png_changed(tmpdir):
+def test_png_changed(tmpdir) -> None:
     root_dir = Path(tmpdir)
     make_all_temp_folders(root_dir)
     run_mocked_image_processing_main(".png", root_dir)
@@ -118,7 +118,7 @@ def test_png_changed(tmpdir):
 
 
 @pytest.mark.usefixtures("load_settings", "no_img_processing")
-def test_png_unchanged(tmpdir):
+def test_png_unchanged(tmpdir) -> None:
     root_dir = Path(tmpdir)
     make_all_temp_folders(root_dir)
     run_mocked_image_processing_main(".png", root_dir)
@@ -128,7 +128,7 @@ def test_png_unchanged(tmpdir):
 
 
 @pytest.mark.usefixtures("load_settings", "no_img_processing")
-def test_jpeg_unchanged(tmpdir):
+def test_jpeg_unchanged(tmpdir) -> None:
     root_dir = Path(tmpdir)
     make_all_temp_folders(root_dir)
     run_mocked_image_processing_main(".jpeg", root_dir)
@@ -138,7 +138,7 @@ def test_jpeg_unchanged(tmpdir):
 
 
 @pytest.mark.usefixtures("load_settings", "no_img_processing")
-def test_jpg_unchanged(tmpdir):
+def test_jpg_unchanged(tmpdir) -> None:
     root_dir = Path(tmpdir)
     make_all_temp_folders(root_dir)
     run_mocked_image_processing_main(".jpg", root_dir)
@@ -148,7 +148,7 @@ def test_jpg_unchanged(tmpdir):
 
 
 @pytest.mark.usefixtures("load_settings", "data_from_img_processing")
-def test_jpg_changed(tmpdir):
+def test_jpg_changed(tmpdir) -> None:
     root_dir = Path(tmpdir)
     make_all_temp_folders(root_dir)
     run_mocked_image_processing_main(".jpg", root_dir)
@@ -158,7 +158,7 @@ def test_jpg_changed(tmpdir):
 
 
 @pytest.mark.usefixtures("load_settings", "error_img_processing")
-def test_jpg_error(tmpdir):
+def test_jpg_error(tmpdir) -> None:
     root_dir = Path(tmpdir)
     make_all_temp_folders(root_dir)
     run_mocked_image_processing_main(".jpg", root_dir)
@@ -167,7 +167,7 @@ def test_jpg_error(tmpdir):
 
 
 @pytest.mark.usefixtures("load_settings")
-def test_unsupported_ext(tmpdir):
+def test_unsupported_ext(tmpdir) -> None:
     root_dir = Path(tmpdir)
     make_all_temp_folders(root_dir)
     run_mocked_image_processing_main(".ext", root_dir)
