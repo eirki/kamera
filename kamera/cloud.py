@@ -15,21 +15,6 @@ from typing import Callable, Generator, Optional
 from pathlib import Path
 
 
-folder_names = {
-    1: "01 (Januar)",
-    2: "02 (Februar)",
-    3: "03 (Mars)",
-    4: "04 (April)",
-    5: "05 (Mai)",
-    6: "06 (Juni)",
-    7: "07 (Juli)",
-    8: "08 (August)",
-    9: "09 (September)",
-    10: "10 (Oktober)",
-    11: "11 (November)",
-    12: "12 (Desember)",
-}
-
 dbx = dropbox.Dropbox(config.DBX_TOKEN)
 
 
@@ -57,6 +42,13 @@ def list_entries(path: Path) -> Generator[KameraEntry, None, None]:
             break
 
 
+def _get_folder_name(month: int) -> str:
+    try:
+        return config["folder_names"][str(month)]
+    except KeyError:
+        return str(month)
+
+
 def _execute_transfer(transfer_func: Callable, destination: Path):
     try:
         transfer_func()
@@ -74,7 +66,7 @@ def move_entry(
         out_dir: Path,
         date: Optional[dt.datetime] = None):
     if date is not None:
-        destination = out_dir / str(date.year) / folder_names[date.month] / from_path.name
+        destination = out_dir / str(date.year) / _get_folder_name(date.month) / from_path.name
     else:
         destination = out_dir / from_path.name
 
@@ -93,7 +85,7 @@ def copy_entry(
         from_path: Path,
         out_dir: Path,
         date: dt.datetime):
-    destination = out_dir / str(date.year) / folder_names[date.month] / from_path.name
+    destination = out_dir / str(date.year) / _get_folder_name(date.month) / from_path.name
 
     transfer_func = partial(
         dbx.files_copy,
@@ -112,7 +104,7 @@ def upload_entry(
         out_dir: Path,
         date: dt.datetime):
     new_name = from_path.with_suffix(".jpg").name
-    destination = out_dir / str(date.year) / folder_names[date.month] / new_name
+    destination = out_dir / str(date.year) / _get_folder_name(date.month) / new_name
 
     transfer_func = partial(
         dbx.files_upload,
