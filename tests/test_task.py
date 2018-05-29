@@ -39,8 +39,17 @@ def run_mocked_image_processing_main(ext: str, root_dir: Path):
     )
 
 
+def assert_file_not_moved(ext: str, root_dir: Path) -> None:
+    assert (root_dir / "Uploads" / f"in_file{ext}").exists() is True
+    assert len(list((root_dir / "Uploads").iterdir())) == 1
+    assert len(list((root_dir / "Review").iterdir())) == 0
+    assert len(list((root_dir / "Backup").iterdir())) == 0
+    assert len(list((root_dir / "Error").iterdir())) == 0
+
+
 def assert_file_moved_to_review_and_backup(ext: str, root_dir: Path) -> None:
     assert (root_dir / "Uploads" / f"in_file{ext}").exists() is False
+    assert len(list((root_dir / "Uploads").iterdir())) == 0
     assert len(list((root_dir / "Review").iterdir())) == 1
     assert len(list((root_dir / "Backup").iterdir())) == 1
     assert len(list((root_dir / "Error").iterdir())) == 0
@@ -48,85 +57,94 @@ def assert_file_moved_to_review_and_backup(ext: str, root_dir: Path) -> None:
 
 def assert_file_moved_to_error(ext: str, root_dir: Path) -> None:
     assert (root_dir / "Uploads" / f"in_file{ext}").exists() is False
+    assert len(list((root_dir / "Uploads").iterdir())) == 0
     assert len(list((root_dir / "Review").iterdir())) == 0
     assert len(list((root_dir / "Backup").iterdir())) == 0
     assert len(list((root_dir / "Error").iterdir())) == 1
 
 
-def assert_contents_unchanged(root_dir: Path) -> None:
-    out_file = list((root_dir / "Review").iterdir())[0]
-    with open(out_file) as file:
-        out_contents = file.read()
-    assert out_contents == "in_file_content"
-
-    backup_file = list((root_dir / "Backup").iterdir())[0]
-    with open(backup_file) as file:
-        backup_contents = file.read()
-    assert backup_contents == "in_file_content"
-
-
-def assert_contents_changed(root_dir: Path) -> None:
-    out_file = list((root_dir / "Review").iterdir())[0]
+def assert_contents_changed(root_dir: Path, subfolder: str) -> None:
+    out_file = list((root_dir / subfolder).iterdir())[0]
     with open(out_file) as file:
         out_contents = file.read()
     assert out_contents == "new_file_content"
 
-    backup_file = list((root_dir / "Backup").iterdir())[0]
-    with open(backup_file) as file:
-        backup_contents = file.read()
-    assert backup_contents == "in_file_content"
 
-
-def assert_error_contents_unchanged(root_dir: Path) -> None:
-    out_file = list((root_dir / "Error").iterdir())[0]
+def assert_contents_unchanged(root_dir: Path, subfolder: str) -> None:
+    out_file = list((root_dir / subfolder).iterdir())[0]
     with open(out_file) as file:
         out_contents = file.read()
     assert out_contents == "in_file_content"
 
 
-@pytest.mark.usefixtures("load_settings", "no_img_processing")
+@pytest.mark.usefixtures("load_settings", "data_from_img_processing")
 def test_mp4(tmpdir):
     root_dir = Path(tmpdir)
     make_all_temp_folders(root_dir)
     run_mocked_image_processing_main(".mp4", root_dir)
     assert_file_moved_to_review_and_backup(".mp4", root_dir)
-    assert_contents_unchanged(root_dir)
+    assert_contents_unchanged(root_dir, "Review")
+    assert_contents_unchanged(root_dir, "Backup")
 
 
-@pytest.mark.usefixtures("load_settings", "no_img_processing")
+@pytest.mark.usefixtures("load_settings", "data_from_img_processing")
 def test_gif(tmpdir):
     root_dir = Path(tmpdir)
     make_all_temp_folders(root_dir)
     run_mocked_image_processing_main(".gif", root_dir)
     assert_file_moved_to_review_and_backup(".gif", root_dir)
-    assert_contents_unchanged(root_dir)
+    assert_contents_unchanged(root_dir, "Review")
+    assert_contents_unchanged(root_dir, "Backup")
 
 
-@pytest.mark.usefixtures("load_settings", "no_img_processing")
+@pytest.mark.usefixtures("load_settings", "data_from_img_processing")
 def test_mov(tmpdir):
     root_dir = Path(tmpdir)
     make_all_temp_folders(root_dir)
     run_mocked_image_processing_main(".mov", root_dir)
     assert_file_moved_to_review_and_backup(".mov", root_dir)
-    assert_contents_unchanged(root_dir)
+    assert_contents_unchanged(root_dir, "Review")
+    assert_contents_unchanged(root_dir, "Backup")
 
 
-@pytest.mark.usefixtures("load_settings", "no_img_processing")
-def test_png(tmpdir):
+@pytest.mark.usefixtures("load_settings", "data_from_img_processing")
+def test_png_changed(tmpdir):
     root_dir = Path(tmpdir)
     make_all_temp_folders(root_dir)
     run_mocked_image_processing_main(".png", root_dir)
     assert_file_moved_to_review_and_backup(".png", root_dir)
-    assert_contents_unchanged(root_dir)
+    assert_contents_changed(root_dir, "Review")
+    assert_contents_unchanged(root_dir, "Backup")
 
 
 @pytest.mark.usefixtures("load_settings", "no_img_processing")
-def test_jpeg(tmpdir):
+def test_png_unchanged(tmpdir):
+    root_dir = Path(tmpdir)
+    make_all_temp_folders(root_dir)
+    run_mocked_image_processing_main(".png", root_dir)
+    assert_file_moved_to_review_and_backup(".png", root_dir)
+    assert_contents_unchanged(root_dir, "Review")
+    assert_contents_unchanged(root_dir, "Backup")
+
+
+@pytest.mark.usefixtures("load_settings", "no_img_processing")
+def test_jpeg_unchanged(tmpdir):
     root_dir = Path(tmpdir)
     make_all_temp_folders(root_dir)
     run_mocked_image_processing_main(".jpeg", root_dir)
     assert_file_moved_to_review_and_backup(".jpeg", root_dir)
-    assert_contents_unchanged(root_dir)
+    assert_contents_unchanged(root_dir, "Review")
+    assert_contents_unchanged(root_dir, "Backup")
+
+
+@pytest.mark.usefixtures("load_settings", "no_img_processing")
+def test_jpg_unchanged(tmpdir):
+    root_dir = Path(tmpdir)
+    make_all_temp_folders(root_dir)
+    run_mocked_image_processing_main(".jpg", root_dir)
+    assert_file_moved_to_review_and_backup(".jpg", root_dir)
+    assert_contents_unchanged(root_dir, "Review")
+    assert_contents_unchanged(root_dir, "Backup")
 
 
 @pytest.mark.usefixtures("load_settings", "data_from_img_processing")
@@ -135,7 +153,8 @@ def test_jpg_changed(tmpdir):
     make_all_temp_folders(root_dir)
     run_mocked_image_processing_main(".jpg", root_dir)
     assert_file_moved_to_review_and_backup(".jpg", root_dir)
-    assert_contents_changed(root_dir)
+    assert_contents_changed(root_dir, "Review")
+    assert_contents_unchanged(root_dir, "Backup")
 
 
 @pytest.mark.usefixtures("load_settings", "error_img_processing")
@@ -144,4 +163,13 @@ def test_jpg_error(tmpdir):
     make_all_temp_folders(root_dir)
     run_mocked_image_processing_main(".jpg", root_dir)
     assert_file_moved_to_error(".jpg", root_dir)
-    assert_error_contents_unchanged(root_dir)
+    assert_contents_unchanged(root_dir, "Error")
+
+
+@pytest.mark.usefixtures("load_settings")
+def test_unsupported_ext(tmpdir):
+    root_dir = Path(tmpdir)
+    make_all_temp_folders(root_dir)
+    run_mocked_image_processing_main(".ext", root_dir)
+    assert_file_not_moved(".ext", root_dir)
+    assert_contents_unchanged(root_dir, "Uploads")
