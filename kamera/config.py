@@ -44,6 +44,11 @@ tag_swaps: Dict[str, str] = {}
 places_file = dbx_path / "config" / "places.yaml"
 
 
+image_extensions = {".jpg", ".jpeg", ".png"}
+video_extensions = {".mp4", ".mov", ".gif"}
+media_extensions = tuple(image_extensions | video_extensions)
+
+
 class Area:
     def __init__(self, name, lat: float, lng: float, spots: List[dict]) -> None:
         self.name: str = name
@@ -76,6 +81,7 @@ def load_settings(dbx: Dropbox):
     settings_data = yaml.load(response.raw.data)
     settings["default_tz"] = settings_data["default_tz"]
     settings["recognition_tolerance"] = settings_data["recognition_tolerance"]
+    settings["folder_names"] = settings_data["folder_names"]
     tag_swaps.update(settings_data.pop("tag_swaps"))
 
 
@@ -109,21 +115,22 @@ def load_recognition_data(dbx: Dropbox):
     for img in unencoded_imgs:
         name = img.parents[0].name
         encoding = _get_facial_encoding(dbx, img)
-        json_encoded = json.dumps(encoding.tolist())
-        dbx.files_upload(
-            f=json_encoded.encode(),
-            path=img.with_suffix(".json").as_posix()
-        )
-        people[name].append(encoding)
+        if encoding is not None:
+            json_encoded = json.dumps(encoding.tolist())
+            dbx.files_upload(
+                f=json_encoded.encode(),
+                path=img.with_suffix(".json").as_posix()
+            )
+            people[name].append(encoding)
 
 
-def _get_facial_encoding(dbx: Dropbox, img_path: Path):
+def _get_facial_encoding(dbx: Dropbox, img_path: Path) -> np.array:
     _, response = dbx.files_download(img_path.as_posix())
     loaded_img = face_recognition.load_image_file(BytesIO(response.raw.data))
     encodings = face_recognition.face_encodings(loaded_img)
     if len(encodings) == 0:
         print(f"Warning: No encodings found: {img_path}")
-        return
+        return None
     elif len(encodings) > 1:
         raise Exception(f"Multiple encodings found: {img_path}")
     encoding = encodings[0]
