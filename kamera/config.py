@@ -24,6 +24,8 @@ app_id = os.environ["app_id"]
 
 flask_rate_limit = os.environ["flask_rate_limit"]
 
+redis_url = os.environ['REDISTOGO_URL']
+
 APP_SECRET = os.environ["APP_SECRET"].encode()
 DBX_TOKEN = os.environ["DBX_TOKEN"]
 

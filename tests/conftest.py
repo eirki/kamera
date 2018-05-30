@@ -11,7 +11,10 @@ import os
 
 import pytest
 import dropbox
+import rq
+import fakeredis
 
+import app
 from kamera import config
 from kamera.task import Cloud
 
@@ -109,3 +112,58 @@ class MockCloud(Cloud):
 @pytest.fixture()
 def mock_cloud():
     return MockCloud()
+
+class MockRedisLock:
+    def __init__(self, *args, **kwargs):
+        pass
+
+    def acquire(self, *args, **kwargs):
+        return True
+
+    def release(self):
+        pass
+
+    def reset_all(self):
+        pass
+
+
+def return_mocked_redis_lock_module():
+    return MockRedisLock
+
+
+@pytest.fixture(autouse=True)
+def use_fake_redis_and_dbx(monkeypatch) -> None:
+    conn = fakeredis.FakeStrictRedis()
+    conn.flushall()
+    monkeypatch.setattr('app.conn', conn)
+    queue = rq.Queue(connection=conn)
+    monkeypatch.setattr('app.queue', queue)
+    running_jobs_registry = rq.registry.StartedJobRegistry(connection=conn)
+    monkeypatch.setattr('app.running_jobs_registry', running_jobs_registry)
+    redis_lock = SimpleNamespace(Lock=MockRedisLock)
+    monkeypatch.setattr('app.redis_lock', redis_lock)
+    # monkeypatch.setattr('app.task.Cloud', MockCloud)
+
+
+@pytest.fixture
+def client():
+    app.app.config['TESTING'] = True
+    client = app.app.test_client()
+    yield client
+
+
+class HMAC:
+    def new(self, *args, **kwargs):
+        class Response:
+            def hexdigest(self):
+                pass
+        return Response()
+
+    def compare_digest(self, *args, **kwargs):
+        return True
+
+
+@pytest.fixture(autouse=True)
+def bypass_dbx_hmac(monkeypatch) -> None:
+    hmac = HMAC()
+    monkeypatch.setattr('app.hmac', hmac)
