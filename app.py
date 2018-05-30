@@ -33,7 +33,8 @@ app = Flask(__name__)
 def get_cloud():
     cloud = getattr(g, '_cloud', None)
     if cloud is None:
-        cloud = task.Cloud()
+        cloud = task.Cloud
+        cloud.connect()
         g._cloud = cloud
     return cloud
 
@@ -126,7 +127,6 @@ def webhook() -> str:
                 func=task.process_entry,
                 args=(
                     entry,
-                    cloud,
                     config.review_path,
                     config.backup_path,
                     config.errors_path
@@ -147,17 +147,16 @@ def main(mode: str) -> None:
         redis_lock.reset_all()
         app.run()
     else:
-        cloud = task.Cloud()
-        config.load_settings(cloud.dbx)
-        config.load_location_data(cloud.dbx)
-        config.load_recognition_data(cloud.dbx)
+        task.Cloud.connect()
+        config.load_settings(task.Cloud.dbx)
+        config.load_location_data(task.Cloud.dbx)
+        config.load_recognition_data(task.Cloud.dbx)
         if mode == "worker":
             with rq.Connection(conn):
                 worker = rq.Worker(list(map(rq.Queue, listen)))
                 worker.work()
         elif mode == "run_once":
             task.run_once(
-                cloud=cloud,
                 in_dir=config.uploads_path,
                 out_dir=config.review_path,
                 backup_dir=config.backup_path,
