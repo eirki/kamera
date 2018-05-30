@@ -19,10 +19,15 @@ from typing import Callable, Generator, Optional
 
 
 class Cloud:
-    def __init__(self):
-        self.dbx = dropbox.Dropbox(config.DBX_TOKEN)
-        self.dbx.users_get_current_account()
+    dbx: dropbox.Dropbox = None
 
+    @classmethod
+    def connect(self):
+        if self.dbx is None:
+            self.dbx = dropbox.Dropbox(config.DBX_TOKEN)
+            self.dbx.users_get_current_account()
+
+    @classmethod
     def list_entries(self, path: Path) -> Generator[KameraEntry, None, None]:
         result = self.dbx.files_list_folder(
             path=path.as_posix(),
@@ -46,6 +51,7 @@ class Cloud:
             else:
                 break
 
+    @classmethod
     def _execute_transfer(self, transfer_func: Callable, destination_folder: Path):
         try:
             transfer_func()
@@ -57,6 +63,7 @@ class Cloud:
             self.dbx.files_create_folder(destination_folder.as_posix())
             transfer_func()
 
+    @classmethod
     def move_entry(
             self,
             from_path: Path,
@@ -83,6 +90,7 @@ class Cloud:
         log.info(f"{from_path.stem}: Moving to dest: {destination}")
         self._execute_transfer(transfer_func, destination.parent)
 
+    @classmethod
     def copy_entry(
             self,
             from_path: Path,
@@ -106,6 +114,7 @@ class Cloud:
         log.info(f"{from_path.stem}: Copying to dest: {destination}")
         self._execute_transfer(transfer_func, destination.parent)
 
+    @classmethod
     def upload_entry(
             self,
             from_path: Path,
@@ -131,6 +140,7 @@ class Cloud:
         log.info(f"{destination.stem}: Uploading to dest: {destination}")
         self._execute_transfer(transfer_func, destination.parent)
 
+    @classmethod
     def download_entry(self, path_str: str):
         try:
             return self.dbx.files_download(path_str)
@@ -156,7 +166,6 @@ def parse_date(entry: KameraEntry) -> dt.datetime:
 
 def process_entry(
         entry: KameraEntry,
-        cloud: Cloud,
         out_dir: Path,
         backup_dir: Path,
         error_dir: Path):
@@ -165,9 +174,9 @@ def process_entry(
     try:
         date = parse_date(entry)
         if entry.path.suffix.lower() in config.video_extensions:
-            cloud.copy_entry(entry.path, out_dir, date)
+            Cloud.copy_entry(entry.path, out_dir, date)
         elif entry.path.suffix.lower() in config.image_extensions:
-            _, response = cloud.download_entry(entry.path.as_posix())
+            _, response = Cloud.download_entry(entry.path.as_posix())
             new_data = image_processing.main(
                 data=response.raw.data,
                 filepath=entry.path,
@@ -177,15 +186,15 @@ def process_entry(
             )
 
             if new_data is None:
-                cloud.copy_entry(entry.path, out_dir, date)
+                Cloud.copy_entry(entry.path, out_dir, date)
             else:
-                cloud.upload_entry(entry.path, new_data, out_dir, date)
+                Cloud.upload_entry(entry.path, new_data, out_dir, date)
         else:
             return
-        cloud.move_entry(entry.path, out_dir=backup_dir, date=date)
+        Cloud.move_entry(entry.path, out_dir=backup_dir, date=date)
     except Exception:
         log.exception(f"Exception occured, moving to Error subfolder: {entry}")
-        cloud.move_entry(entry.path, out_dir=error_dir)
+        Cloud.move_entry(entry.path, out_dir=error_dir)
     finally:
         end_time = dt.datetime.now()
         duration = end_time - start_time
@@ -194,16 +203,14 @@ def process_entry(
 
 
 def run_once(
-        cloud: Cloud,
         in_dir: Path,
         out_dir: Path,
         backup_dir: Path,
         error_dir: Path,
 ) -> None:
-    entries = cloud.list_entries(in_dir)
+    entries = Cloud.list_entries(in_dir)
     for entry in entries:
         process_entry(
-            cloud=cloud,
             entry=entry,
             out_dir=out_dir,
             backup_dir=backup_dir,

@@ -5,9 +5,9 @@ from kamera.logger import log
 from types import SimpleNamespace
 from collections import defaultdict
 from pathlib import Path
-import datetime as dt
 import shutil
 import os
+import datetime as dt
 
 import pytest
 import dropbox
@@ -16,13 +16,14 @@ import fakeredis
 
 import app
 from kamera import config
-from kamera.task import Cloud
+from kamera import task
 
 from typing import Optional
 
 
 @pytest.fixture()
 def load_settings():
+    task.Cloud.connect()
     config.settings = {}
     config.tag_swaps = {}
     mock_dbx = MockDropbox()
@@ -31,6 +32,7 @@ def load_settings():
 
 @pytest.fixture()
 def load_location_data():
+    task.Cloud.connect()
     config.areas = []
     mock_dbx = MockDropbox()
     config.load_location_data(mock_dbx)
@@ -38,6 +40,7 @@ def load_location_data():
 
 @pytest.fixture()
 def load_recognition_data():
+    task.Cloud.connect()
     config.people = defaultdict(list)
     mock_dbx = MockDropbox()
     config.load_recognition_data(mock_dbx)
@@ -66,7 +69,18 @@ def error_img_processing(monkeypatch):
     monkeypatch.setattr('kamera.task.image_processing.main', error_img_processing_mock)
 
 
+class BadInputError(dropbox.exceptions.BadInputError):
+    pass
+
+
 class MockDropbox:
+
+    def __init__(*args, **kwargs):
+        pass
+
+    def users_get_current_account(self):
+        pass
+
     def files_download(self, path: Path):
         with open(path, "rb") as file:
             data = file.read()
@@ -76,42 +90,58 @@ class MockDropbox:
 
     def files_upload(self, f: bytes, path: str, autorename: Optional[bool]=False):
         if not Path(path).parent.exists():
-            raise dropbox.exceptions.BadInputError(request_id=1, message="message")
+            raise BadInputError(request_id=1, message="message")
         with open(path, "wb") as file:
             file.write(f)
 
     def files_move(self, from_path: str, to_path: str, autorename: Optional[bool]=False) -> None:
         if not Path(from_path).parent.exists() or not Path(to_path).parent.exists():
-            raise dropbox.exceptions.BadInputError(request_id=1, message="message")
+            raise BadInputError(request_id=1, message="message")
         shutil.move(from_path, Path(to_path).parent)
 
     def files_copy(self, from_path: str, to_path: str, autorename: Optional[bool]=False) -> None:
         if not Path(from_path).parent.exists() or not Path(to_path).parent.exists():
-            raise dropbox.exceptions.BadInputError(request_id=1, message="message")
+            raise BadInputError(request_id=1, message="message")
         shutil.copy(from_path, Path(to_path).parent)
 
     def files_create_folder(self, path, autorename=False) -> None:
         os.makedirs(path)
 
-    def files_list_folder(self, path: str, recursive: bool):
+    def files_list_folder(
+        self,
+        path: str,
+        recursive: Optional[bool]=False,
+        include_media_info: Optional[bool]=False
+    ):
         path_obj = Path(path)
         files = path_obj.rglob("*") if recursive else path_obj.iterdir()
-        mock_entries = [SimpleNamespace(path_display=file) for file in files]
-        mock_result = SimpleNamespace(entries=mock_entries)
+        mock_entries = [
+            dropbox.files.FileMetadata(
+                path_display=file.as_posix(),
+                path_lower=file.as_posix().lower(),
+                client_modified=dt.datetime(2000, 1, 1)
+            )
+            for file in files]
+        mock_result = SimpleNamespace(entries=mock_entries, has_more=False)
         return mock_result
 
     def files_list_folder_continue(self, cursor) -> None:
         pass
 
 
-class MockCloud(Cloud):
-    def __init__(self):
-        self.dbx = MockDropbox()
+@pytest.fixture(autouse=True)
+def mock_cloud(monkeypatch):
+    mock_module = SimpleNamespace(
+        Dropbox=MockDropbox,
+        exceptions=SimpleNamespace(BadInputError=BadInputError),
+        files=SimpleNamespace(
+            FileMetadata=dropbox.files.FileMetadata,
+            PhotoMetadata=dropbox.files.PhotoMetadata,
 
+        )
+    )
+    monkeypatch.setattr('kamera.task.dropbox', mock_module)
 
-@pytest.fixture()
-def mock_cloud():
-    return MockCloud()
 
 class MockRedisLock:
     def __init__(self, *args, **kwargs):
