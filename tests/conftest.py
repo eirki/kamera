@@ -7,10 +7,13 @@ from collections import defaultdict
 from pathlib import Path
 import datetime as dt
 import shutil
+import os
 
 import pytest
+import dropbox
 
 from kamera import config
+from kamera.task import Cloud
 
 from typing import Optional
 
@@ -39,31 +42,25 @@ def load_recognition_data():
 
 @pytest.fixture()
 def no_img_processing(monkeypatch):
+    def no_img_processing_mock(*args, **kwargs):
+        new_data = None
+        return new_data
     monkeypatch.setattr('kamera.task.image_processing.main', no_img_processing_mock)
-
-
-def no_img_processing_mock(*args, **kwargs):
-    new_data = None
-    return new_data
 
 
 @pytest.fixture()
 def data_from_img_processing(monkeypatch):
+    def data_from_img_processing_mock(*args, **kwargs):
+        new_data = b"new_file_content"
+        return new_data
     monkeypatch.setattr('kamera.task.image_processing.main', data_from_img_processing_mock)
-
-
-def data_from_img_processing_mock(*args, **kwargs):
-    new_data = b"new_file_content"
-    return new_data
 
 
 @pytest.fixture()
 def error_img_processing(monkeypatch):
+    def error_img_processing_mock(*args, **kwargs):
+        raise Exception("This is an excpetion from mock image processing")
     monkeypatch.setattr('kamera.task.image_processing.main', error_img_processing_mock)
-
-
-def error_img_processing_mock(*args, **kwargs):
-    raise Exception("This is an excpetion from mock image processing")
 
 
 class MockDropbox:
@@ -74,6 +71,25 @@ class MockDropbox:
         response = SimpleNamespace(raw=SimpleNamespace(data=data))
         return filemetadata, response
 
+    def files_upload(self, f: bytes, path: str, autorename: Optional[bool]=False):
+        if not Path(path).parent.exists():
+            raise dropbox.exceptions.BadInputError(request_id=1, message="message")
+        with open(path, "wb") as file:
+            file.write(f)
+
+    def files_move(self, from_path: str, to_path: str, autorename: Optional[bool]=False) -> None:
+        if not Path(from_path).parent.exists() or not Path(to_path).parent.exists():
+            raise dropbox.exceptions.BadInputError(request_id=1, message="message")
+        shutil.move(from_path, Path(to_path).parent)
+
+    def files_copy(self, from_path: str, to_path: str, autorename: Optional[bool]=False) -> None:
+        if not Path(from_path).parent.exists() or not Path(to_path).parent.exists():
+            raise dropbox.exceptions.BadInputError(request_id=1, message="message")
+        shutil.copy(from_path, Path(to_path).parent)
+
+    def files_create_folder(self, path, autorename=False) -> None:
+        os.makedirs(path)
+
     def files_list_folder(self, path: str, recursive: bool):
         path_obj = Path(path)
         files = path_obj.rglob("*") if recursive else path_obj.iterdir()
@@ -81,52 +97,13 @@ class MockDropbox:
         mock_result = SimpleNamespace(entries=mock_entries)
         return mock_result
 
-    def files_upload(self, f: bytes, path: str):
-        with open(path, "wb") as file:
-            file.write(f)
-
-    def users_get_current_account(self):
+    def files_list_folder_continue(self, cursor) -> None:
         pass
 
 
-class MockCloud:
+class MockCloud(Cloud):
     def __init__(self):
         self.dbx = MockDropbox()
-
-    def move_entry(
-            self,
-            from_path: Path,
-            out_dir: Path,
-            date: Optional[dt.datetime] = None):
-        log.info("move_entry")
-        to_path = out_dir / from_path.name
-        shutil.move(from_path.as_posix(), to_path.as_posix())
-
-    def copy_entry(
-            self,
-            from_path: Path,
-            out_dir: Path,
-            date: dt.datetime):
-        log.info("copy_entry")
-        to_path = out_dir / from_path.name
-        shutil.copy2(from_path.as_posix(), to_path.as_posix())
-
-    def upload_entry(
-            self,
-            from_path: Path,
-            new_data: bytes,
-            out_dir: Path,
-            date: dt.datetime):
-        log.info("upload_entry")
-        to_path = out_dir / from_path.name
-        datebytes = date.strftime("%Y-%m-%d_%H:%M:%S %Z").encode()
-        with open(to_path, "wb") as file:
-            file.write(datebytes + b" " + new_data)
-
-    def download_entry(self, path_str: str):
-        log.info("download_entry")
-        entry = self.dbx.files_download(path_str)
-        return entry
 
 
 @pytest.fixture()
