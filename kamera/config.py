@@ -81,6 +81,7 @@ def load_settings(dbx: Dropbox):
     settings_data = yaml.load(response.raw.data)
     settings["default_tz"] = settings_data["default_tz"]
     settings["recognition_tolerance"] = settings_data["recognition_tolerance"]
+    settings["folder_names"] = settings_data["folder_names"]
     tag_swaps.update(settings_data.pop("tag_swaps"))
 
 

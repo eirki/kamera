@@ -46,12 +46,6 @@ class Cloud:
             else:
                 break
 
-    def _get_folder_name(self, month: int) -> str:
-        try:
-            return config["folder_names"][str(month)]
-        except KeyError:
-            return str(month)
-
     def _execute_transfer(self, transfer_func: Callable, destination_folder: Path):
         try:
             transfer_func()
@@ -70,7 +64,12 @@ class Cloud:
             date: Optional[dt.datetime] = None
     ):
         if date is not None:
-            destination = out_dir / str(date.year) / self._get_folder_name(date.month) / from_path.name
+            destination = (
+                out_dir /
+                str(date.year) /
+                config.settings["folder_names"][date.month] /
+                from_path.name
+            )
         else:
             destination = out_dir / from_path.name
 
@@ -90,7 +89,12 @@ class Cloud:
             out_dir: Path,
             date: dt.datetime
     ):
-        destination = out_dir / str(date.year) / self._get_folder_name(date.month) / from_path.name
+        destination = (
+            out_dir /
+            str(date.year) /
+            config.settings["folder_names"][date.month] /
+            from_path.name
+        )
 
         transfer_func = partial(
             self.dbx.files_copy,
@@ -110,7 +114,12 @@ class Cloud:
             date: dt.datetime
     ):
         new_name = from_path.with_suffix(".jpg").name
-        destination = out_dir / str(date.year) / self._get_folder_name(date.month) / new_name
+        destination = (
+            out_dir /
+            str(date.year) /
+            config.settings["folder_names"][date.month] /
+            new_name
+        )
 
         transfer_func = partial(
             self.dbx.files_upload,
