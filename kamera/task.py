@@ -52,15 +52,15 @@ class Cloud:
         except KeyError:
             return str(month)
 
-    def _execute_transfer(self, transfer_func: Callable, destination: Path):
+    def _execute_transfer(self, transfer_func: Callable, destination_folder: Path):
         try:
             transfer_func()
         except requests.exceptions.SSLError:
             log.info("Encountered SSL error during transfer. Trying again")
             transfer_func()
         except dropbox.exceptions.BadInputError:
-            log.info(f"Making folder: {destination}")
-            self.dbx.files_create_folder(destination.as_posix())
+            log.info(f"Making folder: {destination_folder}")
+            self.dbx.files_create_folder(destination_folder.as_posix())
             transfer_func()
 
     def move_entry(
@@ -82,7 +82,7 @@ class Cloud:
         )
 
         log.info(f"{from_path.stem}: Moving to dest: {destination}")
-        self._execute_transfer(transfer_func, destination)
+        self._execute_transfer(transfer_func, destination.parent)
 
     def copy_entry(
             self,
@@ -100,7 +100,7 @@ class Cloud:
         )
 
         log.info(f"{from_path.stem}: Copying to dest: {destination}")
-        self._execute_transfer(transfer_func, destination)
+        self._execute_transfer(transfer_func, destination.parent)
 
     def upload_entry(
             self,
@@ -120,7 +120,7 @@ class Cloud:
         )
 
         log.info(f"{destination.stem}: Uploading to dest: {destination}")
-        self._execute_transfer(transfer_func, destination)
+        self._execute_transfer(transfer_func, destination.parent)
 
     def download_entry(self, path_str: str):
         try:
