@@ -43,7 +43,6 @@ rq_dashboard_password = os.environ["rq_dashboard_password"]
 settings: Dict[str, str] = {}
 tag_swaps: Dict[str, str] = {}
 
-places_file = dbx_path / "config" / "places.yaml"
 
 
 image_extensions = {".jpg", ".jpeg", ".png"}
@@ -88,15 +87,16 @@ def load_settings(dbx: Dropbox):
 
 
 def load_location_data(dbx: Dropbox):
+    places_file = config_path / "places.yaml"
     _, response = dbx.files_download(places_file.as_posix())
     location_dict = yaml.load(response.raw.data)
     areas.extend([Area(**location) for location in location_dict])
 
 
 def load_recognition_data(dbx: Dropbox):
-    root_path = config_path / "people"
+    recognition_path = config_path / "people"
     result = dbx.files_list_folder(
-        path=root_path.as_posix(),
+        path=recognition_path.as_posix(),
         recursive=True
     )
     media_extensions = (".jpg", ".jpeg", ".png")

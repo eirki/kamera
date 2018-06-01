@@ -51,7 +51,6 @@ class Cloud:
             else:
                 break
 
-    @classmethod
     def _execute_transfer(self, transfer_func: Callable, destination_folder: Path):
         try:
             transfer_func()
@@ -63,7 +62,6 @@ class Cloud:
             self.dbx.files_create_folder(destination_folder.as_posix())
             transfer_func()
 
-    @classmethod
     def move_entry(
             self,
             from_path: Path,
@@ -90,7 +88,6 @@ class Cloud:
         log.info(f"{from_path.stem}: Moving to dest: {destination}")
         self._execute_transfer(transfer_func, destination.parent)
 
-    @classmethod
     def copy_entry(
             self,
             from_path: Path,
@@ -114,7 +111,6 @@ class Cloud:
         log.info(f"{from_path.stem}: Copying to dest: {destination}")
         self._execute_transfer(transfer_func, destination.parent)
 
-    @classmethod
     def upload_entry(
             self,
             from_path: Path,
