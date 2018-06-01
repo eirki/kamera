@@ -22,12 +22,10 @@ from kamera import recognition
 
 def get_closest_area(lat: float, lng: float) -> Optional[config.Area]:
     """Return area if image taken within 50 km from center of area"""
-    print(config.areas)
     distances = [
         (great_circle((area.lat, area.lng), (lat, lng)).km, area)
         for area in config.areas
     ]
-    print(distances)
     distance, closest_area = min(distances)
     return closest_area if distance < 50 else None
 
