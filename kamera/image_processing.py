@@ -13,21 +13,19 @@ from geopy.distance import great_circle
 from resizeimage import resizeimage
 
 from pathlib import Path
-from typing import List, Optional, Tuple
+from typing import List, Optional
 import dropbox
 
 from kamera import config
 from kamera import recognition
 
 
-def get_closest_area(lat: float, lng: float) -> Optional[config.Area]:
+def get_closest_area(lat: float, lng: float, locations: List[config.Area]) -> Optional[config.Area]:
     """Return area if image taken within 50 km from center of area"""
-    print(config.areas)
     distances = [
         (great_circle((area.lat, area.lng), (lat, lng)).km, area)
-        for area in config.areas
+        for area in locations
     ]
-    print(distances)
     distance, closest_area = min(distances)
     return closest_area if distance < 50 else None
 
@@ -44,10 +42,10 @@ def get_closest_spot(lat: float, lng: float, area: config.Area) -> Optional[conf
     return closest_spot if distance < 100 else None
 
 
-def get_geo_tag(lat: float, lng: float) -> Optional[str]:
+def get_geo_tag(lat: float, lng: float, locations: List[config.Area]) -> Optional[str]:
     tagstring = None
     if lat and lng:
-        area = get_closest_area(lat, lng)
+        area = get_closest_area(lat, lng, locations)
         if area:
             spot = get_closest_spot(lat, lng, area)
             if spot:
@@ -100,8 +98,9 @@ def add_tag(data: bytes, tags: List[str]) -> bytes:
 def main(data: bytes,
          filepath: Path,
          date: dt.datetime,
-         location: Optional[dropbox.files.GpsCoordinates],
-         dimensions: Optional[dropbox.files.Dimensions]
+         settings: config.Settings,
+         coordinates: Optional[dropbox.files.GpsCoordinates],
+         dimensions: Optional[dropbox.files.Dimensions],
          ) -> Optional[bytes]:
     data_changed = False
     name = filepath.stem
@@ -131,22 +130,23 @@ def main(data: bytes,
 
     tags = []
     # Get geotag.
-    if location:
+    if coordinates:
         geotag = get_geo_tag(
-            lat=location.latitude,
-            lng=location.longitude,
+            lat=coordinates.latitude,
+            lng=coordinates.longitude,
+            locations=settings.locations
         )
         if geotag is not None:
             tags.append(geotag)
 
     # Check if any recognized faces
     if recognition.face_recognition is not None:
-        peopletags = recognition.recognize_face(data)
+        peopletags = recognition.recognize_face(data, settings)
         tags.extend(peopletags)
 
     # Add tags to image data if present
     if tags:
-        tags = [config.tag_swaps.get(tag, tag) for tag in tags]
+        tags = [settings.tag_swaps.get(tag, tag) for tag in tags]
         log.info(f"{name}: Tagging {tags}")
         data = add_tag(data, tags)
         data_changed = True

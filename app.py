@@ -7,53 +7,37 @@ import os
 from hashlib import sha256
 import hmac
 import json
+import datetime as dt
+from pathlib import Path
 
 from flask import Flask, request, abort, Response, g
-import flask_limiter
 import redis
 import rq
 import rq_dashboard
 import redis_lock
+import dropbox
 
 from kamera import task
 from kamera import config
+from kamera.mediatypes import KameraEntry
 
-from typing import Optional
+from typing import Optional, Generator
 
-
-redis_url = os.environ['REDISTOGO_URL']
-conn = redis.from_url(redis_url)
-queue = rq.Queue(connection=conn)
-listen = ['default']
-running_jobs_registry = rq.registry.StartedJobRegistry(connection=conn)
 
 app = Flask(__name__)
 
-
-def get_cloud():
-    cloud = getattr(g, '_cloud', None)
-    if cloud is None:
-        cloud = task.Cloud
-        cloud.connect()
-        g._cloud = cloud
-    return cloud
+redis_client = redis.from_url(config.redis_url)
+queue = rq.Queue(connection=redis_client)
+listen = ['default']
+running_jobs_registry = rq.registry.StartedJobRegistry(connection=redis_client)
 
 
-# Define and apply rate limiting
-@app.errorhandler(429)
-def ratelimit_handler(e) -> str:
-    log.info("rate limit exceeded, autoreturning 200 OK")
-    return "rate limit exceeded"
-
-
-def get_dbx_user_from_req() -> str:
-    try:
-        return str(json.loads(request.data)["delta"]["users"][0])
-    except (KeyError, json.decoder.JSONDecodeError):
-        return flask_limiter.util.get_remote_address()
-
-
-limiter = flask_limiter.Limiter(app, key_func=get_dbx_user_from_req)
+def get_redis_client():
+    redis_client = getattr(g, '_redis_client', None)
+    if redis_client is None:
+        redis_client = redis.from_url(config.redis_url)
+        g._redis_client = redis_client
+    return redis_client
 
 
 # Define and apply rq-dashboard authenication,
@@ -80,13 +64,28 @@ def basic_auth() -> Optional[Response]:
 
 
 app.config.from_object(rq_dashboard.default_settings)
-app.config["REDIS_URL"] = redis_url
+app.config["REDIS_URL"] = config.redis_url
 rq_dashboard.blueprint.before_request(basic_auth)
 app.register_blueprint(rq_dashboard.blueprint, url_prefix="/rq")
 
 
+def set_time_of_request(account_id: str):
+    now = dt.datetime.utcnow()
+    redis_client.hset(f"user:{account_id}", "last_request_at", now.timestamp())
+
+
+def time_since_last_request_greater_than_limit(account_id: str) -> bool:
+    timestamp = redis_client.hget(f"user:{account_id}", "last_request_at")
+    if timestamp is None:
+        return True
+    last_request_at = dt.datetime.utcfromtimestamp(timestamp)
+    delta = dt.datetime.utcnow() - last_request_at
+    if delta >= dt.timedelta(seconds=config.flask_rate_limit):
+        return True
+    return False
+
+
 @app.route('/')
-@limiter.limit(config.flask_rate_limit)
 def hello_world() -> str:
     return f"{config.app_id}.home"
 
@@ -98,70 +97,104 @@ def verify() -> str:
     return request.args.get('challenge')
 
 
+def check_enqueue_entries(account_id: str):
+    queued_and_running_jobs = (
+        set(queue.job_ids) | set(running_jobs_registry.get_job_ids())
+    )
+    token = config.get_dbx_token(redis_client, account_id)
+    dbx = dropbox.Dropbox(token)
+    for entry in dbx_list_entries(dbx, account_id, config.uploads_path):
+        if entry.job_id in queued_and_running_jobs:
+            continue
+        log.info(f"enqueing entry: {entry}")
+        queue.enqueue_call(
+            func=task.process_entry,
+            args=(
+                entry,
+                config.review_path,
+                config.backup_path,
+                config.errors_path
+            ),
+            result_ttl=600,
+            job_id=entry.job_id
+        )
+
+
 @app.route('/kamera', methods=['POST'])
-@limiter.limit(config.flask_rate_limit)
 def webhook() -> str:
-    user_id = get_dbx_user_from_req()
-    log.info(f"request incoming, from {user_id}")
+    log.info("request incoming")
     signature = request.headers.get('X-Dropbox-Signature')
     digest = hmac.new(config.APP_SECRET, request.data, sha256).hexdigest()
     if not hmac.compare_digest(signature, digest):
         abort(403)
 
-    lock = redis_lock.Lock(conn, name=user_id, expire=60)
-    if lock.acquire(blocking=False):
-        log.info("lock acquired")
-    else:
-        log.info("User request already being processed, autoreturning 200 OK")
-        return "User request already being processed"
-    try:
-        cloud = get_cloud()
-        queued_and_running_jobs = (
-            set(queue.job_ids) | set(running_jobs_registry.get_job_ids())
-        )
-        for entry in cloud.list_entries(config.uploads_path):
-            if entry.name in queued_and_running_jobs:
-                continue
-            log.info(f"enqueing entry: {entry}")
-            queue.enqueue_call(
-                func=task.process_entry,
-                args=(
-                    entry,
-                    config.review_path,
-                    config.backup_path,
-                    config.errors_path
-                ),
-                result_ttl=600,
-                job_id=entry.name
-            )
-    finally:
-        log.info("request finished")
-        lock.release()
+    accounts = json.loads(request.data)["list_folder"]["accounts"]
+    for account_id in accounts:
+        if not time_since_last_request_greater_than_limit(account_id):
+            log.info(f"rate limit exceeded: {account_id}")
+            continue
+        lock = redis_lock.Lock(redis_client, name=account_id, expire=60)
+        if not lock.acquire(blocking=False):
+            log.info(f"User request already being processed: {account_id}")
+            continue
+        try:
+            check_enqueue_entries(account_id)
+        except Exception:
+            log.exception(f"Exception occured, when handling request: {account_id}")
+        finally:
+            set_time_of_request(account_id)
+            lock.release()
+            log.info("request finished")
     return ""
+
+
+def dbx_list_entries(
+    dbx: dropbox.Dropbox,
+    account_id: str,
+    path: Path
+) -> Generator[KameraEntry, None, None]:
+    result = dbx.files_list_folder(
+        path=path.as_posix(),
+        include_media_info=True
+    )
+    while True:
+        log.info(f"Entries in upload folder: {len(result.entries)}")
+        for entry in result.entries:
+            # Ignore deleted files, folders
+            if not (entry.path_lower.endswith(config.media_extensions) and
+                    isinstance(entry, dropbox.files.FileMetadata)):
+                continue
+
+            dbx_photo_metadata = entry.media_info.get_metadata() if entry.media_info else None
+            kamera_entry = KameraEntry(account_id, entry, dbx_photo_metadata)
+            yield kamera_entry
+
+        # Repeat only if there's more to do
+        if result.has_more:
+            result = dbx.files_list_folder_continue(result.cursor)
+        else:
+            break
 
 
 def main(mode: str) -> None:
     if mode == "server":
-        cloud = get_cloud()
-        config.load_settings(cloud.dbx)
         redis_lock.reset_all()
         app.run()
     else:
-        task.Cloud.connect()
-        config.load_settings(task.Cloud.dbx)
-        config.load_location_data(task.Cloud.dbx)
-        config.load_recognition_data(task.Cloud.dbx)
         if mode == "worker":
-            with rq.Connection(conn):
+            with rq.Connection(redis_client):
                 worker = rq.Worker(list(map(rq.Queue, listen)))
                 worker.work()
         elif mode == "run_once":
-            task.run_once(
-                in_dir=config.uploads_path,
-                out_dir=config.review_path,
-                backup_dir=config.backup_path,
-                error_dir=config.errors_path,
-            )
+            account_id = sys.argv[2]
+            dbx = task.Cloud(account_id).dbx  # Instantiate cloud obj since dbx will cached
+            for entry in dbx_list_entries(dbx, account_id, config.uploads_path):
+                task.process_entry(
+                    entry=entry,
+                    out_dir=config.review_path,
+                    backup_dir=config.backup_path,
+                    error_dir=config.errors_path,
+                )
 
 
 if __name__ == '__main__':
