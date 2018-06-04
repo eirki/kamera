@@ -22,7 +22,7 @@ load_dotenv(dotenv_path=env_path)
 
 app_id = os.environ["app_id"]
 
-flask_rate_limit = os.environ["flask_rate_limit"]
+flask_rate_limit = int(os.environ["flask_rate_limit"])
 
 redis_url = os.environ['REDISTOGO_URL']
 

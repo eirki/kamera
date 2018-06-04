@@ -78,7 +78,7 @@ def time_since_last_request_greater_than_limit(account_id: str) -> bool:
     timestamp = redis_client.hget(f"user:{account_id}", "last_request_at")
     if timestamp is None:
         return True
-    last_request_at = dt.datetime.utcfromtimestamp(int(timestamp))
+    last_request_at = dt.datetime.fromtimestamp(float(timestamp))
     delta = dt.datetime.utcnow() - last_request_at
     if delta >= dt.timedelta(seconds=config.flask_rate_limit):
         return True

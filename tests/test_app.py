@@ -17,7 +17,7 @@ def test_empty_db(client):
 
 
 def test_webhook(client, tmpdir, monkeypatch) -> None:
-    account_id = "account_id1"
+    account_id = "test_account"
     temp_path = Path(tmpdir)
     file_name = "in_file.jpg"
     with open(temp_path / file_name, "w") as file:
@@ -29,3 +29,21 @@ def test_webhook(client, tmpdir, monkeypatch) -> None:
     )
     assert rv.data == b""
     assert app.queue.job_ids == [f"{account_id}:{file_name}"]
+
+
+def test_rate_limiter(client, monkeypatch) -> None:
+    class TestCalled:
+        def __init__(self):
+            self.called_times = 0
+
+        def __call__(self, *args, **kwargs):
+            self.called_times += 1
+
+    test_called = TestCalled()
+    account_id = "test_account2"
+    monkeypatch.setattr('app.check_enqueue_entries', test_called)
+
+    request_data = json.dumps({"list_folder": {"accounts": [account_id]}})
+    client.post('/kamera', data=request_data)
+    client.post('/kamera', data=request_data)
+    assert test_called.called_times == 1
