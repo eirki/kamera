@@ -5,15 +5,18 @@ from kamera.logger import log
 import os
 import datetime as dt
 from pathlib import Path
+from types import SimpleNamespace
+import shutil
 
 import dropbox
 import pytest
 import pytz
 
+import app
 from kamera import task
 from kamera import mediatypes
 
-from typing import Optional
+from typing import Optional, Dict
 
 
 default_client_modified = dt.datetime(2000, 1, 1)
@@ -96,7 +99,7 @@ def assert_contents_unchanged(root_dir: Path, subfolder: str) -> None:
     assert out_contents == "in_file_content"
 
 
-@pytest.mark.usefixtures("data_from_img_processing")
+@pytest.mark.usefixtures("monkeypatch_mock_dropbox", "monkeypatch_redis_do_nothing", "data_from_img_processing")
 def test_mp4(tmpdir) -> None:
     root_dir = Path(tmpdir)
     make_all_temp_folders(root_dir)
@@ -106,7 +109,7 @@ def test_mp4(tmpdir) -> None:
     assert_contents_unchanged(root_dir, "Backup")
 
 
-@pytest.mark.usefixtures("data_from_img_processing")
+@pytest.mark.usefixtures("monkeypatch_mock_dropbox", "monkeypatch_redis_do_nothing", "data_from_img_processing")
 def test_gif(tmpdir) -> None:
     root_dir = Path(tmpdir)
     make_all_temp_folders(root_dir)
@@ -116,7 +119,7 @@ def test_gif(tmpdir) -> None:
     assert_contents_unchanged(root_dir, "Backup")
 
 
-@pytest.mark.usefixtures("data_from_img_processing")
+@pytest.mark.usefixtures("monkeypatch_mock_dropbox", "monkeypatch_redis_do_nothing", "data_from_img_processing")
 def test_mov(tmpdir) -> None:
     root_dir = Path(tmpdir)
     make_all_temp_folders(root_dir)
@@ -126,7 +129,7 @@ def test_mov(tmpdir) -> None:
     assert_contents_unchanged(root_dir, "Backup")
 
 
-@pytest.mark.usefixtures("data_from_img_processing")
+@pytest.mark.usefixtures("monkeypatch_mock_dropbox", "monkeypatch_redis_do_nothing", "data_from_img_processing")
 def test_png_changed(tmpdir) -> None:
     root_dir = Path(tmpdir)
     make_all_temp_folders(root_dir)
@@ -136,7 +139,7 @@ def test_png_changed(tmpdir) -> None:
     assert_contents_unchanged(root_dir, "Backup")
 
 
-@pytest.mark.usefixtures("no_img_processing")
+@pytest.mark.usefixtures("monkeypatch_mock_dropbox", "monkeypatch_redis_do_nothing", "no_img_processing")
 def test_png_unchanged(tmpdir) -> None:
     root_dir = Path(tmpdir)
     make_all_temp_folders(root_dir)
@@ -146,7 +149,7 @@ def test_png_unchanged(tmpdir) -> None:
     assert_contents_unchanged(root_dir, "Backup")
 
 
-@pytest.mark.usefixtures("no_img_processing")
+@pytest.mark.usefixtures("monkeypatch_mock_dropbox", "monkeypatch_redis_do_nothing", "no_img_processing")
 def test_jpeg_unchanged(tmpdir) -> None:
     root_dir = Path(tmpdir)
     make_all_temp_folders(root_dir)
@@ -156,7 +159,7 @@ def test_jpeg_unchanged(tmpdir) -> None:
     assert_contents_unchanged(root_dir, "Backup")
 
 
-@pytest.mark.usefixtures("no_img_processing")
+@pytest.mark.usefixtures("monkeypatch_mock_dropbox", "monkeypatch_redis_do_nothing", "no_img_processing")
 def test_jpg_unchanged(tmpdir) -> None:
     root_dir = Path(tmpdir)
     make_all_temp_folders(root_dir)
@@ -166,7 +169,7 @@ def test_jpg_unchanged(tmpdir) -> None:
     assert_contents_unchanged(root_dir, "Backup")
 
 
-@pytest.mark.usefixtures("data_from_img_processing")
+@pytest.mark.usefixtures("monkeypatch_mock_dropbox", "monkeypatch_redis_do_nothing", "data_from_img_processing")
 def test_jpg_changed(tmpdir) -> None:
     root_dir = Path(tmpdir)
     make_all_temp_folders(root_dir)
@@ -176,7 +179,7 @@ def test_jpg_changed(tmpdir) -> None:
     assert_contents_unchanged(root_dir, "Backup")
 
 
-@pytest.mark.usefixtures("error_img_processing")
+@pytest.mark.usefixtures("monkeypatch_mock_dropbox", "monkeypatch_redis_do_nothing", "error_img_processing")
 def test_jpg_error(tmpdir) -> None:
     root_dir = Path(tmpdir)
     make_all_temp_folders(root_dir)
@@ -185,7 +188,7 @@ def test_jpg_error(tmpdir) -> None:
     assert_contents_unchanged(root_dir, "Error")
 
 
-@pytest.mark.usefixtures()
+@pytest.mark.usefixtures("monkeypatch_mock_dropbox", "monkeypatch_redis_do_nothing")
 def test_unsupported_ext(tmpdir) -> None:
     root_dir = Path(tmpdir)
     make_all_temp_folders(root_dir)
@@ -194,7 +197,7 @@ def test_unsupported_ext(tmpdir) -> None:
     assert_contents_unchanged(root_dir, "Uploads")
 
 
-@pytest.mark.usefixtures("data_from_img_processing")
+@pytest.mark.usefixtures("monkeypatch_mock_dropbox", "monkeypatch_redis_do_nothing", "data_from_img_processing")
 def test_client_modified_date_used(tmpdir, settings) -> None:
     """datetime sent to image_processing (default_client_modified) is timezone-naive 01.01.2000 00:00
     this should be assumed to be utc. tests default timezone is "US/Eastern" (utc-05:00).
@@ -218,7 +221,7 @@ def test_client_modified_date_used(tmpdir, settings) -> None:
     assert month_folder.name == settings.folder_names[client_modified_local.month]
 
 
-@pytest.mark.usefixtures("data_from_img_processing")
+@pytest.mark.usefixtures("monkeypatch_mock_dropbox", "monkeypatch_redis_do_nothing", "data_from_img_processing")
 def test_time_taken_date_used(tmpdir, settings) -> None:
     """datetime sent to image_processing (in_date_naive) is timezone-naive 01.01.2010 00:00
     this should be assumed to be utc. tests default timezone is "US/Eastern" (utc-05:00).
@@ -244,7 +247,7 @@ def test_time_taken_date_used(tmpdir, settings) -> None:
     assert month_folder.name == settings.folder_names[in_date_local.month]
 
 
-@pytest.mark.usefixtures("data_from_img_processing")
+@pytest.mark.usefixtures("monkeypatch_mock_dropbox", "monkeypatch_redis_do_nothing", "data_from_img_processing")
 def test_time_taken_date_used_with_location(tmpdir, settings) -> None:
     """datetime sent to image_processing (in_date_naive) is timezone-naive 12.31.2014 23:00,
     with gps location in timezone "Europe/Paris"
@@ -270,3 +273,114 @@ def test_time_taken_date_used_with_location(tmpdir, settings) -> None:
     year_folder, month_folder, out_file = (root_dir / "Review").rglob("*")
     assert year_folder.name == str(in_date_local.year)
     assert month_folder.name == settings.folder_names[in_date_local.month]
+
+
+@pytest.fixture()
+def no_img_processing(monkeypatch):
+    def no_img_processing_mock(*args, **kwargs):
+        new_data = None
+        return new_data
+    monkeypatch.setattr('kamera.task.image_processing.main', no_img_processing_mock)
+
+
+@pytest.fixture()
+def data_from_img_processing(monkeypatch):
+    def data_from_img_processing_mock(*args, **kwargs):
+        new_data = b"new_file_content"
+        return new_data
+    monkeypatch.setattr('kamera.task.image_processing.main', data_from_img_processing_mock)
+
+
+@pytest.fixture()
+def error_img_processing(monkeypatch):
+    def error_img_processing_mock(*args, **kwargs):
+        raise Exception("This is an excpetion from mock image processing")
+    monkeypatch.setattr('kamera.task.image_processing.main', error_img_processing_mock)
+
+
+class BadInputError(dropbox.exceptions.BadInputError):
+    pass
+
+
+class MockDropbox:
+    def __init__(*args, **kwargs):
+        pass
+
+    def users_get_current_account(self):
+        pass
+
+    def files_download(self, path: Path):
+        with open(path, "rb") as file:
+            data = file.read()
+        filemetadata = None
+        response = SimpleNamespace(raw=SimpleNamespace(data=data))
+        return filemetadata, response
+
+    def files_upload(self, f: bytes, path: str, autorename: Optional[bool]=False):
+        if not Path(path).parent.exists():
+            raise BadInputError(request_id=1, message="message")
+        with open(path, "wb") as file:
+            file.write(f)
+
+    def files_move(self, from_path: str, to_path: str, autorename: Optional[bool]=False) -> None:
+        if not Path(from_path).parent.exists() or not Path(to_path).parent.exists():
+            raise BadInputError(request_id=1, message="message")
+        shutil.move(from_path, Path(to_path).parent)
+
+    def files_copy(self, from_path: str, to_path: str, autorename: Optional[bool]=False) -> None:
+        if not Path(from_path).parent.exists() or not Path(to_path).parent.exists():
+            raise BadInputError(request_id=1, message="message")
+        shutil.copy(from_path, Path(to_path).parent)
+
+    def files_create_folder(self, path, autorename=False) -> None:
+        os.makedirs(path)
+
+
+@pytest.fixture()
+def monkeypatch_mock_dropbox(monkeypatch):
+    mock_module = SimpleNamespace(
+        Dropbox=MockDropbox,
+        exceptions=SimpleNamespace(BadInputError=BadInputError),
+        files=SimpleNamespace(
+            FileMetadata=dropbox.files.FileMetadata,
+            PhotoMetadata=dropbox.files.PhotoMetadata,
+
+        )
+    )
+    monkeypatch.setattr('kamera.task.dropbox', mock_module)
+
+
+@pytest.fixture()
+def settings():
+    class MockSettings:
+        def __init__(self):
+            self.default_tz: str = "US/Eastern"
+            self.folder_names: Dict[str, str] = {
+                1: "January",
+                2: "February",
+                3: "March",
+                4: "April",
+                5: "May",
+                6: "June",
+                7: "July",
+                8: "August",
+                9: "September",
+                10: "October",
+                11: "November",
+                12: "December"
+              }
+    return MockSettings()
+
+
+@pytest.fixture()
+def monkeypatch_redis_do_nothing(monkeypatch) -> None:
+    class MockRedis:
+        def hget(self, *args, **kwargs):
+            return b""
+
+        def hset(self, *args, **kwargs):
+            pass
+
+    def get_mocked_redis(*args, **kwargs):
+        return MockRedis()
+    monkeypatch.setattr('kamera.task.redis.from_url', get_mocked_redis)
