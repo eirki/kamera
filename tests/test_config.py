@@ -4,9 +4,11 @@ from kamera.logger import log
 
 from pathlib import Path
 from types import SimpleNamespace
+import dropbox
 
 from kamera import config
 
+from typing import Optional
 
 try:
     import face_recognition
@@ -72,3 +74,19 @@ class MockDropbox:
         filemetadata = None
         response = SimpleNamespace(raw=SimpleNamespace(data=data))
         return filemetadata, response
+
+    def files_list_folder(
+        self,
+        path: str,
+        recursive: Optional[bool]=False,
+        include_media_info: Optional[bool]=False
+    ):
+        path_obj = Path(path)
+        files = path_obj.rglob("*") if recursive else path_obj.iterdir()
+        mock_entries = [
+            dropbox.files.FileMetadata(
+                path_display=file.as_posix(),
+            )
+            for file in files]
+        mock_result = SimpleNamespace(entries=mock_entries, has_more=False)
+        return mock_result
