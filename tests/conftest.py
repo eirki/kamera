@@ -135,24 +135,23 @@ class MockRedisLock:
     def reset_all(self):
         pass
 
-
-def return_mocked_redis_lock_module():
-    return MockRedisLock
+@pytest.fixture()
+def mock_redis(*args, **kwargs) -> fakeredis.FakeStrictRedis:
+    fake_redis_client = fakeredis.FakeStrictRedis()
+    return fake_redis_client
 
 
 @pytest.fixture(autouse=True)
-def use_fake_redis(monkeypatch) -> None:
-    fake_redis_client = fakeredis.FakeStrictRedis()
+def monkeypath_redis(monkeypatch) -> None:
+    fake_redis_client = mock_redis()
     fake_redis_client.flushall()
-    monkeypatch.setattr('app.redis_client', fake_redis_client)
-    monkeypatch.setattr('kamera.task.Cloud.redis_client', fake_redis_client)
+    monkeypatch.setattr('redis.from_url', mock_redis)
     queue = rq.Queue(connection=fake_redis_client)
     monkeypatch.setattr('app.queue', queue)
     running_jobs_registry = rq.registry.StartedJobRegistry(connection=fake_redis_client)
     monkeypatch.setattr('app.running_jobs_registry', running_jobs_registry)
     redis_lock = SimpleNamespace(Lock=MockRedisLock)
     monkeypatch.setattr('app.redis_lock', redis_lock)
-    return fake_redis_client
 
 
 @pytest.fixture

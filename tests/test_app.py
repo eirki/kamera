@@ -16,13 +16,16 @@ def test_empty_db(client):
     assert config.app_id.encode() in rv.data
 
 
-def test_webhook(client, tmpdir, monkeypatch) -> None:
+def test_webhook(client, tmpdir, monkeypatch, mock_redis) -> None:
     account_id = "test_account"
     temp_path = Path(tmpdir)
     file_name = "in_file.jpg"
     with open(temp_path / file_name, "w") as file:
         file.write("")
     monkeypatch.setattr('app.config.uploads_path', temp_path)
+    mock_redis.hset(f"user:{account_id}", "token", "test_token")
+    token = mock_redis.hget(f"user:{account_id}", "token").decode()
+
     rv = client.post(
         '/kamera',
         data=json.dumps({"list_folder": {"accounts": [account_id]}}),
