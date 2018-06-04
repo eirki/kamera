@@ -27,7 +27,6 @@ flask_rate_limit = os.environ["flask_rate_limit"]
 redis_url = os.environ['REDISTOGO_URL']
 
 APP_SECRET = os.environ["APP_SECRET"].encode()
-DBX_TOKEN = os.environ["DBX_TOKEN"]
 
 dbx_path = Path(os.environ["dbx_path"])
 uploads_path = dbx_path / "Uploads"
@@ -39,15 +38,30 @@ config_path = dbx_path / "config"
 rq_dashboard_username = os.environ["rq_dashboard_username"]
 rq_dashboard_password = os.environ["rq_dashboard_password"]
 
-
-settings: Dict[str, str] = {}
-tag_swaps: Dict[str, str] = {}
-
-
-
 image_extensions = {".jpg", ".jpeg", ".png"}
 video_extensions = {".mp4", ".mov", ".gif"}
 media_extensions = tuple(image_extensions | video_extensions)
+
+
+class Settings:
+    def __init__(self, dbx: Dropbox) -> None:
+        settings_data = _load_settings(dbx)
+        self.default_tz: str = settings_data["default_tz"]
+        self.recognition_tolerance: float = settings_data["recognition_tolerance"]
+        self.folder_names: Dict[str, str] = settings_data["folder_names"]
+        self.tag_swaps: Dict[str, str] = settings_data.pop("tag_swaps")
+        location_data = _load_location_data(dbx)
+        self.locations: List[Area] = location_data
+        if face_recognition is not None:
+            recognition_data = _load_recognition_data(dbx)
+            self.recognition_data: Dict[str, List[np.array]] = recognition_data
+
+
+def _load_settings(dbx: Dropbox):
+    settings_file = config_path / "settings.yaml"
+    _, response = dbx.files_download(settings_file.as_posix())
+    settings = yaml.load(response.raw.data)
+    return settings
 
 
 class Area:
@@ -71,35 +85,22 @@ class Spot:
         return self.name
 
 
-areas: List[Area] = []
-
-people: Dict[str, List[np.array]] = defaultdict(list)
-
-
-def load_settings(dbx: Dropbox):
-    settings_file = config_path / "settings.yaml"
-    _, response = dbx.files_download(settings_file.as_posix())
-    settings_data = yaml.load(response.raw.data)
-    settings["default_tz"] = settings_data["default_tz"]
-    settings["recognition_tolerance"] = settings_data["recognition_tolerance"]
-    settings["folder_names"] = settings_data["folder_names"]
-    tag_swaps.update(settings_data.pop("tag_swaps"))
-
-
-def load_location_data(dbx: Dropbox):
+def _load_location_data(dbx: Dropbox):
     places_file = config_path / "places.yaml"
     _, response = dbx.files_download(places_file.as_posix())
     location_dict = yaml.load(response.raw.data)
-    areas.extend([Area(**location) for location in location_dict])
+    areas = [Area(**location) for location in location_dict]
+    return areas
 
 
-def load_recognition_data(dbx: Dropbox):
+def _load_recognition_data(dbx: Dropbox):
     recognition_path = config_path / "people"
     result = dbx.files_list_folder(
         path=recognition_path.as_posix(),
         recursive=True
     )
-    media_extensions = (".jpg", ".jpeg", ".png")
+
+    people: Dict[str, List[np.array]] = defaultdict(list)
 
     paths = {Path(entry.path_display) for entry in result.entries}
     jsons = {path for path in paths if path.suffix == ".json"}
@@ -111,7 +112,7 @@ def load_recognition_data(dbx: Dropbox):
 
     unencoded_imgs = {
         path for path in paths if (
-            path.suffix in media_extensions and
+            path.suffix in image_extensions and
             path.with_suffix(".json") not in jsons)
     }
     for img in unencoded_imgs:
@@ -124,6 +125,7 @@ def load_recognition_data(dbx: Dropbox):
                 path=img.with_suffix(".json").as_posix()
             )
             people[name].append(encoding)
+    return people
 
 
 def _get_facial_encoding(dbx: Dropbox, img_path: Path) -> np.array:
@@ -137,3 +139,8 @@ def _get_facial_encoding(dbx: Dropbox, img_path: Path) -> np.array:
         raise Exception(f"Multiple encodings found: {img_path}")
     encoding = encodings[0]
     return encoding
+
+
+def get_dbx_token(redis_client, account_id):
+    token = redis_client.hget(f"user:{account_id}", "token")
+    return token

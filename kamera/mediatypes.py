@@ -12,20 +12,24 @@ import dropbox
 class KameraEntry:
     def __init__(
             self,
+            account_id: str,
             entry: dropbox.files.Metadata,
-            metadata: Optional[dropbox.files.FileMetadata]) -> None:
+            metadata: Optional[dropbox.files.FileMetadata]
+) -> None:
+        self.account_id = account_id
         self.path = Path(entry.path_display)
         self.name = self.path.name
+        self.job_id = f"{self.account_id}:{self.name}"
         self.client_modified = entry.client_modified
 
         if metadata is not None:
             self.time_taken = metadata.time_taken
             self.dimensions = metadata.dimensions if metadata.dimensions else None
-            self.location = metadata.location if metadata.location else None
+            self.coordinates = metadata.location if metadata.location else None
         else:
             self.time_taken = None
             self.dimensions = None
-            self.location = None
+            self.coordinates = None
 
     def __repr__(self):
         return repr(self.name)

@@ -13,6 +13,7 @@ import piexif
 from io import BytesIO
 
 from kamera import image_processing
+from kamera import config
 
 from typing import Tuple, Optional
 
@@ -63,9 +64,10 @@ def assert_image_attrs_identical(output_data: bytes, desired_data: bytes):
 
 def fetch_processing_output(
         filename: str,
+        settings: config.Settings,
         dimensions: Optional[dropbox.files.Dimensions]=None,
-        location: Optional[dropbox.files.GpsCoordinates]=None,
-        date: Optional[dt.datetime]=None
+        coordinates: Optional[dropbox.files.GpsCoordinates]=None,
+        date: Optional[dt.datetime]=None,
         ) -> bytes:
     filepath_input = test_images_path / "input" / filename
     with open(filepath_input, "rb") as file:
@@ -74,8 +76,9 @@ def fetch_processing_output(
     output_data = image_processing.main(
         data=input_data,
         filepath=test_images_path / "input" / filename,
+        settings=settings,
         dimensions=dimensions,
-        location=location,
+        coordinates=coordinates,
         date=date,
         )
     return output_data
@@ -88,82 +91,74 @@ def fetch_desired_output(filename: str) -> bytes:
     return desired_output
 
 
-@pytest.mark.usefixtures("load_settings", "load_location_data")
-def test_tag_spot() -> None:
+def test_tag_spot(settings) -> None:
     filename = "spot.jpg"
-    loc = dropbox.files.GpsCoordinates(latitude=48.8662694, longitude=2.3242583)
-    output = fetch_processing_output(filename, location=loc)
+    coordinates = dropbox.files.GpsCoordinates(latitude=48.8662694, longitude=2.3242583)
+    output = fetch_processing_output(filename, settings, coordinates=coordinates)
     desired_output = fetch_desired_output(filename)
     assert_image_attrs_identical(output, desired_output)
 
 
-@pytest.mark.usefixtures("load_settings", "load_location_data")
-def test_tag_area() -> None:
+def test_tag_area(settings) -> None:
     filename = "area.jpg"
-    loc = dropbox.files.GpsCoordinates(latitude=48.8715194, longitude=2.3372444)
-    output = fetch_processing_output(filename, location=loc)
+    coordinates = dropbox.files.GpsCoordinates(latitude=48.8715194, longitude=2.3372444)
+    output = fetch_processing_output(filename, settings, coordinates=coordinates)
     desired_output = fetch_desired_output(filename)
     assert_image_attrs_identical(output, desired_output)
 
 
-@pytest.mark.usefixtures("load_settings")
-def test_png() -> None:
+def test_png(settings) -> None:
     filename = "filetype.png"
     date = (
         dt.datetime.strptime("2018-05-14 16:07:59", "%Y-%m-%d %H:%M:%S")
         .replace(tzinfo=dt.timezone.utc)
         .astimezone(tz=pytz.timezone("Europe/Paris"))
     )
-    output = fetch_processing_output(filename, date=date)
+    output = fetch_processing_output(filename, settings, date=date)
     desired_output = fetch_desired_output("filetype.jpg")
     assert_image_attrs_identical(output, desired_output)
 
 
-@pytest.mark.usefixtures("load_settings", "load_location_data")
-def test_tag_swap() -> None:
+def test_tag_swap(settings) -> None:
     filename = "tag_swap.jpg"
-    loc = dropbox.files.GpsCoordinates(latitude=48.8698583, longitude=2.3523166)
-    output = fetch_processing_output(filename, location=loc)
+    coordinates = dropbox.files.GpsCoordinates(latitude=48.8698583, longitude=2.3523166)
+    output = fetch_processing_output(filename, settings, coordinates=coordinates)
     desired_output = fetch_desired_output(filename)
     assert_image_attrs_identical(output, desired_output)
 
 
-@pytest.mark.usefixtures("load_settings")
-def test_resize() -> None:
+def test_resize(settings) -> None:
     filename = "resize.jpg"
     dimensions = dropbox.files.Dimensions(height=3024, width=4032)
-    output = fetch_processing_output(filename, dimensions=dimensions)
+    output = fetch_processing_output(filename, settings, dimensions=dimensions)
     desired_output = fetch_desired_output(filename)
     assert_image_attrs_identical(output, desired_output)
 
 
-@pytest.mark.usefixtures("load_settings", "load_location_data")
-def test_resize_tag_location() -> None:
+def test_resize_tag_coordinates(settings) -> None:
     filename = "resize, spot.jpg"
     dimensions = dropbox.files.Dimensions(height=3024, width=4032)
-    loc = dropbox.files.GpsCoordinates(latitude=48.8662694, longitude=2.3242583)
-    output = fetch_processing_output(filename, dimensions=dimensions, location=loc)
+    coordinates = dropbox.files.GpsCoordinates(latitude=48.8662694, longitude=2.3242583)
+    output = fetch_processing_output(filename, settings, dimensions=dimensions, coordinates=coordinates)
     desired_output = fetch_desired_output(filename)
     assert_image_attrs_identical(output, desired_output)
 
 
-@pytest.mark.usefixtures("load_settings")
-def test_add_date() -> None:
+def test_add_date(settings) -> None:
     filename = "date.jpeg"
     date = (
         dt.datetime.strptime("2018-05-14 16:10:09", "%Y-%m-%d %H:%M:%S")
         .replace(tzinfo=dt.timezone.utc)
         .astimezone(tz=pytz.timezone("Europe/Paris"))
     )
-    output = fetch_processing_output(filename, date=date)
+    output = fetch_processing_output(filename, settings, date=date)
     desired_output = fetch_desired_output(filename)
     assert_image_attrs_identical(output, desired_output)
 
 
 if face_recognition is not None:
-    @pytest.mark.usefixtures("load_settings", "load_recognition_data")
-    def test_recognition() -> None:
+    def test_recognition(settings) -> None:
         filename = "recognition.jpg"
-        output = fetch_processing_output(filename)
+        output = fetch_processing_output(filename, settings)
         desired_output = fetch_desired_output(filename)
         assert_image_attrs_identical(output, desired_output)

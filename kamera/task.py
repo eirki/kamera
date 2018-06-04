@@ -10,46 +10,34 @@ import pytz
 from timezonefinderL import TimezoneFinder
 import dropbox
 import requests
+import redis
 
 from kamera import config
 from kamera import image_processing
 from kamera.mediatypes import KameraEntry
 
-from typing import Callable, Generator, Optional
+from typing import Callable, Optional, Dict
 
 
 class Cloud:
-    dbx: dropbox.Dropbox = None
+    dbx_cache: Dict[str, dropbox.Dropbox] = {}
+    settings_cache: Dict[str, Dict] = {}
 
-    @classmethod
-    def connect(self):
-        if self.dbx is None:
-            self.dbx = dropbox.Dropbox(config.DBX_TOKEN)
-            self.dbx.users_get_current_account()
+    redis_client: redis.Redis = None
 
-    @classmethod
-    def list_entries(self, path: Path) -> Generator[KameraEntry, None, None]:
-        result = self.dbx.files_list_folder(
-            path=path.as_posix(),
-            include_media_info=True
-        )
-        while True:
-            log.info(f"Entries in upload folder: {len(result.entries)}")
-            for entry in result.entries:
-                # Ignore deleted files, folders
-                if not (entry.path_lower.endswith(config.media_extensions) and
-                        isinstance(entry, dropbox.files.FileMetadata)):
-                    continue
+    def __init__(self, account_id):
+        if self.redis_client is None:
+            self.redis_client = redis.from_url(config.redis_url)
 
-                dbx_photo_metadata = entry.media_info.get_metadata() if entry.media_info else None
-                kamera_entry = KameraEntry(entry, dbx_photo_metadata)
-                yield kamera_entry
-
-            # Repeat only if there's more to do
-            if result.has_more:
-                result = self.dbx.files_list_folder_continue(result.cursor)
-            else:
-                break
+        self.account_id = account_id
+        try:
+            self.dbx = self.dbx_cache[account_id]
+            self.settings = self.settings_cache[account_id]
+        except KeyError:
+            self.dbx = dropbox.Dropbox(config.get_dbx_token(self.redis_client, account_id))
+            self.dbx_cache[account_id] = self.dbx
+            self.settings = config.Settings(self.dbx)
+            self.settings_cache[account_id] = self.settings
 
     def _execute_transfer(self, transfer_func: Callable, destination_folder: Path):
         try:
@@ -72,7 +60,7 @@ class Cloud:
             destination = (
                 out_dir /
                 str(date.year) /
-                config.settings["folder_names"][date.month] /
+                self.settings.folder_names[date.month] /
                 from_path.name
             )
         else:
@@ -97,7 +85,7 @@ class Cloud:
         destination = (
             out_dir /
             str(date.year) /
-            config.settings["folder_names"][date.month] /
+            self.settings.folder_names[date.month] /
             from_path.name
         )
 
@@ -122,7 +110,7 @@ class Cloud:
         destination = (
             out_dir /
             str(date.year) /
-            config.settings["folder_names"][date.month] /
+            self.settings.folder_names[date.month] /
             new_name
         )
 
@@ -136,7 +124,6 @@ class Cloud:
         log.info(f"{destination.stem}: Uploading to dest: {destination}")
         self._execute_transfer(transfer_func, destination.parent)
 
-    @classmethod
     def download_entry(self, path_str: str):
         try:
             return self.dbx.files_download(path_str)
@@ -145,18 +132,18 @@ class Cloud:
             return self.dbx.files_download(path_str)
 
 
-def parse_date(entry: KameraEntry) -> dt.datetime:
+def parse_date(entry: KameraEntry, settings: config.Settings) -> dt.datetime:
     naive_date = entry.time_taken if entry.time_taken is not None else entry.client_modified
     utc_date = naive_date.replace(tzinfo=dt.timezone.utc)
-    if entry.location is not None:
+    if entry.coordinates is not None:
         img_tz = TimezoneFinder().timezone_at(
-            lat=entry.location.latitude,
-            lng=entry.location.longitude
+            lat=entry.coordinates.latitude,
+            lng=entry.coordinates.longitude
         )
         if img_tz:
             local_date = utc_date.astimezone(tz=pytz.timezone(img_tz))
             return local_date
-    local_date = utc_date.astimezone(tz=pytz.timezone(config.settings["default_tz"]))
+    local_date = utc_date.astimezone(tz=pytz.timezone(settings.default_tz))
     return local_date
 
 
@@ -164,33 +151,36 @@ def process_entry(
         entry: KameraEntry,
         out_dir: Path,
         backup_dir: Path,
-        error_dir: Path):
+        error_dir: Path,
+):
     log.info(f"{entry}: Processing")
     start_time = dt.datetime.now()
+    cloud = Cloud(entry.account_id)
     try:
-        date = parse_date(entry)
+        date = parse_date(entry, cloud.settings)
         if entry.path.suffix.lower() in config.video_extensions:
-            Cloud.copy_entry(entry.path, out_dir, date)
+            cloud.copy_entry(entry.path, out_dir, date)
         elif entry.path.suffix.lower() in config.image_extensions:
-            _, response = Cloud.download_entry(entry.path.as_posix())
+            _, response = cloud.download_entry(entry.path.as_posix())
             new_data = image_processing.main(
                 data=response.raw.data,
                 filepath=entry.path,
                 date=date,
-                location=entry.location,
+                settings=cloud.settings,
+                coordinates=entry.coordinates,
                 dimensions=entry.dimensions,
             )
 
             if new_data is None:
-                Cloud.copy_entry(entry.path, out_dir, date)
+                cloud.copy_entry(entry.path, out_dir, date)
             else:
-                Cloud.upload_entry(entry.path, new_data, out_dir, date)
+                cloud.upload_entry(entry.path, new_data, out_dir, date)
         else:
             return
-        Cloud.move_entry(entry.path, out_dir=backup_dir, date=date)
+        cloud.move_entry(entry.path, out_dir=backup_dir, date=date)
     except Exception:
         log.exception(f"Exception occured, moving to Error subfolder: {entry}")
-        Cloud.move_entry(entry.path, out_dir=error_dir)
+        cloud.move_entry(entry.path, out_dir=error_dir)
     finally:
         end_time = dt.datetime.now()
         duration = end_time - start_time

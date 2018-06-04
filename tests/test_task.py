@@ -12,7 +12,6 @@ import pytz
 
 from kamera import task
 from kamera import mediatypes
-from kamera import config
 
 from typing import Optional
 
@@ -27,7 +26,7 @@ def make_all_temp_folders(root_dir: Path) -> None:
     os.mkdir(root_dir / "Error")
 
 
-def run_mocked_image_processing_main(
+def run_task_process_entry(
     ext: str,
     root_dir: Path,
     metadata: Optional[dropbox.files.PhotoMetadata]=None
@@ -39,7 +38,7 @@ def run_mocked_image_processing_main(
             path_display=in_file.as_posix(),
             client_modified=default_client_modified,
         )
-    entry = mediatypes.KameraEntry(dbx_entry, metadata=metadata)
+    entry = mediatypes.KameraEntry("test_account", dbx_entry, metadata=metadata)
     task.process_entry(
         entry=entry,
         out_dir=root_dir / "Review",
@@ -97,106 +96,106 @@ def assert_contents_unchanged(root_dir: Path, subfolder: str) -> None:
     assert out_contents == "in_file_content"
 
 
-@pytest.mark.usefixtures("load_settings", "data_from_img_processing")
+@pytest.mark.usefixtures("data_from_img_processing")
 def test_mp4(tmpdir) -> None:
     root_dir = Path(tmpdir)
     make_all_temp_folders(root_dir)
-    run_mocked_image_processing_main(".mp4", root_dir)
+    run_task_process_entry(".mp4", root_dir)
     assert_file_moved_to_review_and_backup(".mp4", root_dir)
     assert_contents_unchanged(root_dir, "Review")
     assert_contents_unchanged(root_dir, "Backup")
 
 
-@pytest.mark.usefixtures("load_settings", "data_from_img_processing")
+@pytest.mark.usefixtures("data_from_img_processing")
 def test_gif(tmpdir) -> None:
     root_dir = Path(tmpdir)
     make_all_temp_folders(root_dir)
-    run_mocked_image_processing_main(".gif", root_dir)
+    run_task_process_entry(".gif", root_dir)
     assert_file_moved_to_review_and_backup(".gif", root_dir)
     assert_contents_unchanged(root_dir, "Review")
     assert_contents_unchanged(root_dir, "Backup")
 
 
-@pytest.mark.usefixtures("load_settings", "data_from_img_processing")
+@pytest.mark.usefixtures("data_from_img_processing")
 def test_mov(tmpdir) -> None:
     root_dir = Path(tmpdir)
     make_all_temp_folders(root_dir)
-    run_mocked_image_processing_main(".mov", root_dir)
+    run_task_process_entry(".mov", root_dir)
     assert_file_moved_to_review_and_backup(".mov", root_dir)
     assert_contents_unchanged(root_dir, "Review")
     assert_contents_unchanged(root_dir, "Backup")
 
 
-@pytest.mark.usefixtures("load_settings", "data_from_img_processing")
+@pytest.mark.usefixtures("data_from_img_processing")
 def test_png_changed(tmpdir) -> None:
     root_dir = Path(tmpdir)
     make_all_temp_folders(root_dir)
-    run_mocked_image_processing_main(".png", root_dir)
+    run_task_process_entry(".png", root_dir)
     assert_file_moved_to_review_and_backup(".png", root_dir)
     assert_contents_changed(root_dir, "Review")
     assert_contents_unchanged(root_dir, "Backup")
 
 
-@pytest.mark.usefixtures("load_settings", "no_img_processing")
+@pytest.mark.usefixtures("no_img_processing")
 def test_png_unchanged(tmpdir) -> None:
     root_dir = Path(tmpdir)
     make_all_temp_folders(root_dir)
-    run_mocked_image_processing_main(".png", root_dir)
+    run_task_process_entry(".png", root_dir)
     assert_file_moved_to_review_and_backup(".png", root_dir)
     assert_contents_unchanged(root_dir, "Review")
     assert_contents_unchanged(root_dir, "Backup")
 
 
-@pytest.mark.usefixtures("load_settings", "no_img_processing")
+@pytest.mark.usefixtures("no_img_processing")
 def test_jpeg_unchanged(tmpdir) -> None:
     root_dir = Path(tmpdir)
     make_all_temp_folders(root_dir)
-    run_mocked_image_processing_main(".jpeg", root_dir)
+    run_task_process_entry(".jpeg", root_dir)
     assert_file_moved_to_review_and_backup(".jpeg", root_dir)
     assert_contents_unchanged(root_dir, "Review")
     assert_contents_unchanged(root_dir, "Backup")
 
 
-@pytest.mark.usefixtures("load_settings", "no_img_processing")
+@pytest.mark.usefixtures("no_img_processing")
 def test_jpg_unchanged(tmpdir) -> None:
     root_dir = Path(tmpdir)
     make_all_temp_folders(root_dir)
-    run_mocked_image_processing_main(".jpg", root_dir)
+    run_task_process_entry(".jpg", root_dir)
     assert_file_moved_to_review_and_backup(".jpg", root_dir)
     assert_contents_unchanged(root_dir, "Review")
     assert_contents_unchanged(root_dir, "Backup")
 
 
-@pytest.mark.usefixtures("load_settings", "data_from_img_processing")
+@pytest.mark.usefixtures("data_from_img_processing")
 def test_jpg_changed(tmpdir) -> None:
     root_dir = Path(tmpdir)
     make_all_temp_folders(root_dir)
-    run_mocked_image_processing_main(".jpg", root_dir)
+    run_task_process_entry(".jpg", root_dir)
     assert_file_moved_to_review_and_backup(".jpg", root_dir)
     assert_contents_changed(root_dir, "Review")
     assert_contents_unchanged(root_dir, "Backup")
 
 
-@pytest.mark.usefixtures("load_settings", "error_img_processing")
+@pytest.mark.usefixtures("error_img_processing")
 def test_jpg_error(tmpdir) -> None:
     root_dir = Path(tmpdir)
     make_all_temp_folders(root_dir)
-    run_mocked_image_processing_main(".jpg", root_dir)
+    run_task_process_entry(".jpg", root_dir)
     assert_file_moved_to_error(".jpg", root_dir)
     assert_contents_unchanged(root_dir, "Error")
 
 
-@pytest.mark.usefixtures("load_settings")
+@pytest.mark.usefixtures()
 def test_unsupported_ext(tmpdir) -> None:
     root_dir = Path(tmpdir)
     make_all_temp_folders(root_dir)
-    run_mocked_image_processing_main(".ext", root_dir)
+    run_task_process_entry(".ext", root_dir)
     assert_file_not_moved(".ext", root_dir)
     assert_contents_unchanged(root_dir, "Uploads")
 
 
-@pytest.mark.usefixtures("load_settings", "data_from_img_processing")
-def test_client_modified_date_used(tmpdir) -> None:
+@pytest.mark.usefixtures("data_from_img_processing")
+def test_client_modified_date_used(tmpdir, settings) -> None:
     """datetime sent to image_processing (default_client_modified) is timezone-naive 01.01.2000 00:00
     this should be assumed to be utc. tests default timezone is "US/Eastern" (utc-05:00).
     client_modified_local should be 12.31.1999 19:00, folders created should be 1999 and 12
@@ -209,18 +208,18 @@ def test_client_modified_date_used(tmpdir) -> None:
             tz=pytz.timezone("US/Eastern")
         )
     )
-    run_mocked_image_processing_main(".jpg", root_dir)
+    run_task_process_entry(".jpg", root_dir)
     assert_file_moved_to_review_and_backup(".jpg", root_dir)
     assert_contents_changed(root_dir, "Review")
     assert_contents_unchanged(root_dir, "Backup")
 
     year_folder, month_folder, out_file = (root_dir / "Review").rglob("*")
     assert year_folder.name == str(client_modified_local.year)
-    assert month_folder.name == config.settings["folder_names"][client_modified_local.month]
+    assert month_folder.name == settings.folder_names[client_modified_local.month]
 
 
-@pytest.mark.usefixtures("load_settings", "data_from_img_processing")
-def test_time_taken_date_used(tmpdir) -> None:
+@pytest.mark.usefixtures("data_from_img_processing")
+def test_time_taken_date_used(tmpdir, settings) -> None:
     """datetime sent to image_processing (in_date_naive) is timezone-naive 01.01.2010 00:00
     this should be assumed to be utc. tests default timezone is "US/Eastern" (utc-05:00).
     client_modified_local should be 12.31.2009 19:00, folders created should be 2009 and 12
@@ -235,18 +234,18 @@ def test_time_taken_date_used(tmpdir) -> None:
         location=None,
         time_taken=in_date_naive
     )
-    run_mocked_image_processing_main(".jpg", root_dir, metadata)
+    run_task_process_entry(".jpg", root_dir, metadata)
     assert_file_moved_to_review_and_backup(".jpg", root_dir)
     assert_contents_changed(root_dir, "Review")
     assert_contents_unchanged(root_dir, "Backup")
 
     year_folder, month_folder, out_file = (root_dir / "Review").rglob("*")
     assert year_folder.name == str(in_date_local.year)
-    assert month_folder.name == config.settings["folder_names"][in_date_local.month]
+    assert month_folder.name == settings.folder_names[in_date_local.month]
 
 
-@pytest.mark.usefixtures("load_settings", "data_from_img_processing")
-def test_time_taken_date_used_with_location(tmpdir) -> None:
+@pytest.mark.usefixtures("data_from_img_processing")
+def test_time_taken_date_used_with_location(tmpdir, settings) -> None:
     """datetime sent to image_processing (in_date_naive) is timezone-naive 12.31.2014 23:00,
     with gps location in timezone "Europe/Paris"
     time_taken should be assumed to be utc. tests default timezone is "US/Eastern" (utc-05:00).
@@ -263,11 +262,11 @@ def test_time_taken_date_used_with_location(tmpdir) -> None:
         location=dropbox.files.GpsCoordinates(latitude=48.8662694, longitude=2.3242583),
         time_taken=in_date_naive
     )
-    run_mocked_image_processing_main(".jpg", root_dir, metadata)
+    run_task_process_entry(".jpg", root_dir, metadata)
     assert_file_moved_to_review_and_backup(".jpg", root_dir)
     assert_contents_changed(root_dir, "Review")
     assert_contents_unchanged(root_dir, "Backup")
 
     year_folder, month_folder, out_file = (root_dir / "Review").rglob("*")
     assert year_folder.name == str(in_date_local.year)
-    assert month_folder.name == config.settings["folder_names"][in_date_local.month]
+    assert month_folder.name == settings.folder_names[in_date_local.month]

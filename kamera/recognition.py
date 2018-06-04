@@ -23,7 +23,8 @@ Match = namedtuple("Match", ["distance", "name"])
 
 def _match_face_with_known_people(
         known_people: Dict[str, List[np_array]],
-        unknown_encoding: np_array
+        unknown_encoding: np_array,
+        tolerance: float
         ) -> List[Match]:
     """
     Returns possible matches for a single unknown face encoding
@@ -40,7 +41,7 @@ def _match_face_with_known_people(
     for name, encodings in known_people.items():
         # Get most similar match for each person's encodings
         distance = min(face_recognition.face_distance(encodings, unknown_encoding))
-        if distance < config.settings["recognition_tolerance"]:
+        if distance < tolerance:
             match_list.append(Match(distance, name))
     match_list.sort()
     return match_list
@@ -71,15 +72,22 @@ def _get_best_match_for_each_face(all_facial_matches: List[List[Match]]) -> List
     return recognized_people
 
 
-def recognize_face(img_data: bytes) -> List[str]:
+def recognize_face(
+    img_data: bytes,
+    settings: config.Settings
+) -> List[str]:
     loaded_img = face_recognition.load_image_file(BytesIO(img_data))
     unknown_encodings = face_recognition.face_encodings(loaded_img)
 
-    known_people = deepcopy(config.people)
+    known_people = deepcopy(settings.recognition_data)
 
     all_facial_matches = []
     for unknown_encoding in unknown_encodings:
-        match_list = _match_face_with_known_people(known_people, unknown_encoding)
+        match_list = _match_face_with_known_people(
+            known_people,
+            unknown_encoding,
+            settings.recognition_tolerance
+        )
         if match_list:
             all_facial_matches.append(match_list)
 

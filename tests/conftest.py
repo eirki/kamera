@@ -3,7 +3,6 @@
 from kamera.logger import log
 
 from types import SimpleNamespace
-from collections import defaultdict
 from pathlib import Path
 import shutil
 import os
@@ -15,35 +14,14 @@ import rq
 import fakeredis
 
 import app
-from kamera import config
 from kamera import task
 
 from typing import Optional
 
 
 @pytest.fixture()
-def load_settings():
-    task.Cloud.connect()
-    config.settings = {}
-    config.tag_swaps = {}
-    mock_dbx = MockDropbox()
-    config.load_settings(mock_dbx)
-
-
-@pytest.fixture()
-def load_location_data():
-    task.Cloud.connect()
-    config.areas = []
-    mock_dbx = MockDropbox()
-    config.load_location_data(mock_dbx)
-
-
-@pytest.fixture()
-def load_recognition_data():
-    task.Cloud.connect()
-    config.people = defaultdict(list)
-    mock_dbx = MockDropbox()
-    config.load_recognition_data(mock_dbx)
+def settings():
+    return task.Cloud("test_account").settings
 
 
 @pytest.fixture()
@@ -141,6 +119,7 @@ def mock_cloud(monkeypatch):
         )
     )
     monkeypatch.setattr('kamera.task.dropbox', mock_module)
+    monkeypatch.setattr('app.dropbox', mock_module)
 
 
 class MockRedisLock:
@@ -163,16 +142,16 @@ def return_mocked_redis_lock_module():
 
 @pytest.fixture(autouse=True)
 def use_fake_redis_and_dbx(monkeypatch) -> None:
-    conn = fakeredis.FakeStrictRedis()
-    conn.flushall()
-    monkeypatch.setattr('app.conn', conn)
-    queue = rq.Queue(connection=conn)
+    fake_redis_client = fakeredis.FakeStrictRedis()
+    fake_redis_client.flushall()
+    monkeypatch.setattr('app.redis_client', fake_redis_client)
+    queue = rq.Queue(connection=fake_redis_client)
     monkeypatch.setattr('app.queue', queue)
-    running_jobs_registry = rq.registry.StartedJobRegistry(connection=conn)
+    running_jobs_registry = rq.registry.StartedJobRegistry(connection=fake_redis_client)
     monkeypatch.setattr('app.running_jobs_registry', running_jobs_registry)
     redis_lock = SimpleNamespace(Lock=MockRedisLock)
     monkeypatch.setattr('app.redis_lock', redis_lock)
-    # monkeypatch.setattr('app.task.Cloud', MockCloud)
+    return fake_redis_client
 
 
 @pytest.fixture

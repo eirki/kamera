@@ -17,13 +17,15 @@ def test_empty_db(client):
 
 
 def test_webhook(client, tmpdir, monkeypatch) -> None:
+    account_id = "account_id1"
     temp_path = Path(tmpdir)
-    with open(temp_path / "in_file.jpg", "w") as file:
+    file_name = "in_file.jpg"
+    with open(temp_path / file_name, "w") as file:
         file.write("")
     monkeypatch.setattr('app.config.uploads_path', temp_path)
     rv = client.post(
         '/kamera',
-        data=json.dumps({"delta": {"users": ["userid1"]}}),
+        data=json.dumps({"list_folder": {"accounts": [account_id]}}),
     )
     assert rv.data == b""
-    assert app.queue.job_ids == ["in_file.jpg"]
+    assert app.queue.job_ids == [f"{account_id}:{file_name}"]
