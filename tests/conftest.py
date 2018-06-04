@@ -141,10 +141,11 @@ def return_mocked_redis_lock_module():
 
 
 @pytest.fixture(autouse=True)
-def use_fake_redis_and_dbx(monkeypatch) -> None:
+def use_fake_redis(monkeypatch) -> None:
     fake_redis_client = fakeredis.FakeStrictRedis()
     fake_redis_client.flushall()
     monkeypatch.setattr('app.redis_client', fake_redis_client)
+    monkeypatch.setattr('kamera.task.Cloud.redis_client', fake_redis_client)
     queue = rq.Queue(connection=fake_redis_client)
     monkeypatch.setattr('app.queue', queue)
     running_jobs_registry = rq.registry.StartedJobRegistry(connection=fake_redis_client)
