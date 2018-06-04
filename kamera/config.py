@@ -142,5 +142,5 @@ def _get_facial_encoding(dbx: Dropbox, img_path: Path) -> np.array:
 
 
 def get_dbx_token(redis_client, account_id):
-    token = redis_client.hget(f"user:{account_id}", "token")
+    token = redis_client.hget(f"user:{account_id}", "token").decode()
     return token
