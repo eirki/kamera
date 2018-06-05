@@ -17,11 +17,10 @@ import rq_dashboard
 import redis_lock
 import dropbox
 
-from kamera import task
+from kamera.task import Task
 from kamera import config
-from kamera.mediatypes import KameraEntry
 
-from typing import Optional, Generator
+from typing import Optional, Generator, Tuple
 
 
 app = Flask(__name__)
@@ -103,20 +102,23 @@ def check_enqueue_entries(account_id: str):
     )
     token = config.get_dbx_token(get_redis_client(), account_id)
     dbx = dropbox.Dropbox(token)
-    for entry in dbx_list_entries(dbx, account_id, config.uploads_path):
-        if entry.job_id in queued_and_running_jobs:
+    for entry, metadata in dbx_list_entries(dbx, config.uploads_path):
+        job_id = f"{account_id}:{entry.name}"
+        if job_id in queued_and_running_jobs:
             continue
         log.info(f"enqueing entry: {entry}")
+        task = Task(
+            account_id,
+            entry,
+            metadata,
+            config.review_path,
+            config.backup_path,
+            config.errors_path
+        )
         queue.enqueue_call(
             func=task.process_entry,
-            args=(
-                entry,
-                config.review_path,
-                config.backup_path,
-                config.errors_path
-            ),
             result_ttl=600,
-            job_id=entry.job_id
+            job_id=job_id
         )
 
 
@@ -150,9 +152,8 @@ def webhook() -> str:
 
 def dbx_list_entries(
     dbx: dropbox.Dropbox,
-    account_id: str,
     path: Path
-) -> Generator[KameraEntry, None, None]:
+) -> Generator[Tuple[dropbox.files.FileMetadata, Optional[dropbox.files.PhotoMetadata]], None, None]:
     result = dbx.files_list_folder(
         path=path.as_posix(),
         include_media_info=True
@@ -165,9 +166,8 @@ def dbx_list_entries(
                     isinstance(entry, dropbox.files.FileMetadata)):
                 continue
 
-            dbx_photo_metadata = entry.media_info.get_metadata() if entry.media_info else None
-            kamera_entry = KameraEntry(account_id, entry, dbx_photo_metadata)
-            yield kamera_entry
+            metadata = entry.media_info.get_metadata() if entry.media_info else None
+            yield entry, metadata
 
         # Repeat only if there's more to do
         if result.has_more:
@@ -187,14 +187,18 @@ def main(mode: str) -> None:
                 worker.work()
         elif mode == "run_once":
             account_id = sys.argv[2]
-            dbx = task.Cloud(account_id).dbx  # Instantiate cloud obj since dbx will cached
-            for entry in dbx_list_entries(dbx, account_id, config.uploads_path):
-                task.process_entry(
-                    entry=entry,
-                    out_dir=config.review_path,
-                    backup_dir=config.backup_path,
-                    error_dir=config.errors_path,
+            dbx = dropbox.Dropbox(config.get_dbx_token(redis_client, account_id))
+            Task.dbx_cache[account_id] = dbx
+            for entry, metadata in dbx_list_entries(dbx, config.uploads_path):
+                task = Task(
+                    account_id,
+                    entry,
+                    metadata,
+                    config.review_path,
+                    config.backup_path,
+                    config.errors_path
                 )
+                task.process_entry()
 
 
 if __name__ == '__main__':

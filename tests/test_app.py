@@ -129,6 +129,7 @@ class MockDropbox:
         files = path_obj.rglob("*") if recursive else path_obj.iterdir()
         mock_entries = [
             dropbox.files.FileMetadata(
+                name=file.name,
                 path_display=file.as_posix(),
                 path_lower=file.as_posix().lower(),
                 client_modified=dt.datetime(2000, 1, 1)

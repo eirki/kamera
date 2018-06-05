@@ -13,8 +13,7 @@ import pytest
 import pytz
 
 from kamera import config
-from kamera import mediatypes
-from kamera import task
+from kamera.task import Task
 import app
 
 from typing import Optional, Dict
@@ -43,15 +42,18 @@ def run_task_process_entry(
             path_display=in_file.as_posix(),
             client_modified=default_client_modified,
         )
-    entry = mediatypes.KameraEntry(account_id, dbx_entry, metadata=metadata)
-    task.Cloud.dbx_cache[account_id] = MockDropbox()
-    task.Cloud.settings_cache[account_id] = MockSettings()
-    task.process_entry(
-        entry=entry,
+    Task.dbx_cache[account_id] = MockDropbox()
+    Task.settings_cache[account_id] = MockSettings(account_id)
+
+    task = Task(
+        account_id=account_id,
+        entry=dbx_entry,
+        metadata=metadata,
         out_dir=root_dir / "Review",
         backup_dir=root_dir / "Backup",
         error_dir=root_dir / "Error",
-    )
+        )
+    task.process_entry()
 
 
 def _get_folder_contents(root_dir: Path):
@@ -232,6 +234,51 @@ def test_time_taken_date_used_with_location(tmpdir, settings) -> None:
     assert month_folder.name == settings.folder_names[in_date_local.month]
 
 
+@pytest.mark.usefixtures("monkeypatch_mock_dropbox", "monkeypatch_redis_do_nothing", "data_from_img_processing")
+def test_settings_caching(monkeypatch, tmpdir, settings) -> None:
+    monkeypatch.setattr('kamera.task.config.Settings', MockSettings)
+    account_id = "test_settings_caching"
+    root_dir = Path(tmpdir)
+    in_file1 = root_dir / "Uploads" / "in_file1.jpg"
+    dbx_entry1 = dropbox.files.FileMetadata(
+            path_display=in_file1.as_posix(),
+            client_modified=default_client_modified,
+        )
+    task1 = Task(
+        account_id=account_id,
+        entry=dbx_entry1,
+        metadata=None,
+        out_dir=root_dir / "Review",
+        backup_dir=root_dir / "Backup",
+        error_dir=root_dir / "Error",
+        )
+
+    assert account_id not in Task.dbx_cache
+    assert account_id not in Task.settings_cache
+
+    dbx1, settings1 = task1.load_from_cache(task1.account_id)
+
+    assert account_id in Task.dbx_cache
+    assert account_id in Task.settings_cache
+
+    in_file2 = root_dir / "Uploads" / "in_file2.jpg"
+    dbx_entry2 = dropbox.files.FileMetadata(
+            path_display=in_file2.as_posix(),
+            client_modified=default_client_modified,
+        )
+    task2 = Task(
+        account_id=account_id,
+        entry=dbx_entry2,
+        metadata=None,
+        out_dir=root_dir / "Review",
+        backup_dir=root_dir / "Backup",
+        error_dir=root_dir / "Error",
+        )
+    dbx2, settings2 = task2.load_from_cache(task2.account_id)
+    assert id(dbx1) == id(dbx2)
+    assert id(settings1) == id(settings2)
+
+
 @pytest.fixture()
 def no_img_processing(monkeypatch):
     def no_img_processing_mock(*args, **kwargs):
@@ -308,7 +355,7 @@ def monkeypatch_mock_dropbox(monkeypatch):
 
 
 class MockSettings:
-    def __init__(self):
+    def __init__(self, account_id):
         self.default_tz: str = "US/Eastern"
         self.folder_names: Dict[str, str] = {
             1: "January",
@@ -328,7 +375,7 @@ class MockSettings:
 
 @pytest.fixture()
 def settings():
-    return MockSettings()
+    return MockSettings("")
 
 
 @pytest.fixture()

@@ -6,6 +6,7 @@ from pathlib import Path
 from types import SimpleNamespace
 import dropbox
 import numpy as np
+import pytest
 
 from kamera import config
 
@@ -17,15 +18,21 @@ except ImportError:
     face_recognition = None
 
 
-def test_load_settings():
-    dbx = MockDropbox()
-    settings = config.Settings(dbx)
-
+def test_settings_default_tz(settings):
     assert settings.default_tz == "US/Eastern"
+
+
+def test_settings_recognition_tolerance(settings):
     assert settings.recognition_tolerance == 0.4
+
+
+def test_settings_tag_swaps(settings):
     assert settings.tag_swaps == {
         "Paris/10e arrondissement": "Holiday/France"
     }
+
+
+def test_settings_folder_names(settings):
     assert settings.folder_names == {
         1: "January",
         2: "February",
@@ -41,6 +48,8 @@ def test_load_settings():
         12: "December"
       }
 
+
+def test_settings_locations(settings):
     assert len(settings.locations) == 1
     location = settings.locations[0]
     assert location.name == "Paris"
@@ -55,14 +64,22 @@ def test_load_settings():
     assert spot2.lat == 48.8698
     assert spot2.lng == 2.3523
 
-    if face_recognition is None:
-        return
-    assert len(settings.recognition_data) == 2
-    assert len(settings.recognition_data["Biden"]) == 1
-    assert isinstance(settings.recognition_data["Biden"][0], np.ndarray)
-    assert len(settings.recognition_data["Obama"]) == 2
-    assert isinstance(settings.recognition_data["Obama"][0], np.ndarray)
-    assert isinstance(settings.recognition_data["Obama"][1], np.ndarray)
+
+if face_recognition is not None:
+    def test_settings_recognition(settings):
+        assert len(settings.recognition_data) == 2
+        assert len(settings.recognition_data["Biden"]) == 1
+        assert isinstance(settings.recognition_data["Biden"][0], np.ndarray)
+        assert len(settings.recognition_data["Obama"]) == 2
+        assert isinstance(settings.recognition_data["Obama"][0], np.ndarray)
+        assert isinstance(settings.recognition_data["Obama"][1], np.ndarray)
+
+
+@pytest.fixture()
+def settings():
+    dbx = MockDropbox()
+    loaded_settings = config.Settings(dbx)
+    return loaded_settings
 
 
 class MockDropbox:
