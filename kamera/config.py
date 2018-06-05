@@ -8,8 +8,8 @@ import json
 
 import yaml
 from dotenv import load_dotenv
+import numpy as np
 try:
-    import numpy as np
     import face_recognition
 except ImportError:
     face_recognition = None
