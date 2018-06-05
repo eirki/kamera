@@ -186,19 +186,3 @@ def process_entry(
         duration = end_time - start_time
         log.info(f"{entry}, duration: {duration}")
         log.info("\n")
-
-
-def run_once(
-        in_dir: Path,
-        out_dir: Path,
-        backup_dir: Path,
-        error_dir: Path,
-) -> None:
-    entries = Cloud.list_entries(in_dir)
-    for entry in entries:
-        process_entry(
-            entry=entry,
-            out_dir=out_dir,
-            backup_dir=backup_dir,
-            error_dir=error_dir,
-        )
