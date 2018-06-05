@@ -6,15 +6,15 @@ from io import BytesIO
 from collections import namedtuple
 from copy import deepcopy
 
-from typing import List, Dict
-
+from numpy import array as np_array
 try:
     import face_recognition
-    from numpy import array as np_array
 except ImportError:
     face_recognition = None
-    np_array = None
     log.info("Unable to import face_recognition.")
+
+from typing import List, Dict
+
 
 from kamera import config
 

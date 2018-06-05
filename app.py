@@ -71,11 +71,11 @@ app.register_blueprint(rq_dashboard.blueprint, url_prefix="/rq")
 
 def set_time_of_request(account_id: str):
     now = dt.datetime.utcnow()
-    redis_client.hset(f"user:{account_id}", "last_request_at", now.timestamp())
+    get_redis_client().hset(f"user:{account_id}", "last_request_at", now.timestamp())
 
 
 def time_since_last_request_greater_than_limit(account_id: str) -> bool:
-    timestamp = redis_client.hget(f"user:{account_id}", "last_request_at")
+    timestamp = get_redis_client().hget(f"user:{account_id}", "last_request_at")
     if timestamp is None:
         return True
     last_request_at = dt.datetime.fromtimestamp(float(timestamp))
@@ -101,7 +101,7 @@ def check_enqueue_entries(account_id: str):
     queued_and_running_jobs = (
         set(queue.job_ids) | set(running_jobs_registry.get_job_ids())
     )
-    token = config.get_dbx_token(redis_client, account_id)
+    token = config.get_dbx_token(get_redis_client(), account_id)
     dbx = dropbox.Dropbox(token)
     for entry in dbx_list_entries(dbx, account_id, config.uploads_path):
         if entry.job_id in queued_and_running_jobs:
@@ -133,7 +133,7 @@ def webhook() -> str:
         if not time_since_last_request_greater_than_limit(account_id):
             log.info(f"rate limit exceeded: {account_id}")
             continue
-        lock = redis_lock.Lock(redis_client, name=account_id, expire=60)
+        lock = redis_lock.Lock(get_redis_client(), name=account_id, expire=60)
         if not lock.acquire(blocking=False):
             log.info(f"User request already being processed: {account_id}")
             continue
