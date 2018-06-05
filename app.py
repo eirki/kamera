@@ -185,7 +185,7 @@ def main(mode: str) -> None:
     else:
         if mode == "worker":
             with rq.Connection(redis_client):
-                worker = rq.Worker(list(map(rq.Queue, listen)))
+                worker = rq.SimpleWorker(queues=[queue])
                 worker.work()
         elif mode == "run_once":
             account_id = sys.argv[2]
