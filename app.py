@@ -100,6 +100,7 @@ def check_enqueue_entries(account_id: str):
     queued_and_running_jobs = (
         set(queue.job_ids) | set(running_jobs_registry.get_job_ids())
     )
+    log.debug(queued_and_running_jobs)
     token = config.get_dbx_token(get_redis_client(), account_id)
     dbx = dropbox.Dropbox(token)
     for entry, metadata in dbx_list_entries(dbx, config.uploads_path):
@@ -160,6 +161,7 @@ def dbx_list_entries(
     )
     while True:
         log.info(f"Entries in upload folder: {len(result.entries)}")
+        log.debug(result.entries)
         for entry in result.entries:
             # Ignore deleted files, folders
             if not (entry.path_lower.endswith(config.media_extensions) and

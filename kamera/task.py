@@ -58,6 +58,8 @@ class Task:
 
     @classmethod
     def load_from_cache(cls, account_id):
+        log.debug(cls.dbx_cache)
+        log.debug(cls.settings_cache)
         if cls.redis_client is None:
             cls.redis_client = redis.from_url(config.redis_url)
 
@@ -68,11 +70,13 @@ class Task:
             cls.dbx_cache[account_id] = dbx
         try:
             settings = cls.settings_cache[account_id]
-            log.info("Settings loaded from cache")
+            log.debug("Settings loaded from cache")
         except KeyError:
             settings = config.Settings(dbx)
             cls.settings_cache[account_id] = settings
-            log.info("Settings loaded from dbx")
+            log.debug("Settings loaded from dbx")
+        log.debug(cls.dbx_cache)
+        log.debug(cls.settings_cache)
         return dbx, settings
 
     def process_entry(self):
