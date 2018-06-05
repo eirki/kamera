@@ -12,9 +12,10 @@ import dropbox
 import pytest
 import pytz
 
-import app
-from kamera import task
+from kamera import config
 from kamera import mediatypes
+from kamera import task
+import app
 
 from typing import Optional, Dict
 
@@ -99,92 +100,47 @@ def assert_contents_unchanged(root_dir: Path, subfolder: str) -> None:
     assert out_contents == "in_file_content"
 
 
+@pytest.mark.parametrize('extension', config.video_extensions)
 @pytest.mark.usefixtures("monkeypatch_mock_dropbox", "monkeypatch_redis_do_nothing", "data_from_img_processing")
-def test_mp4(tmpdir) -> None:
+def test_video(tmpdir, extension) -> None:
     root_dir = Path(tmpdir)
     make_all_temp_folders(root_dir)
-    run_task_process_entry(".mp4", root_dir)
-    assert_file_moved_to_review_and_backup(".mp4", root_dir)
+    run_task_process_entry(extension, root_dir)
+    assert_file_moved_to_review_and_backup(extension, root_dir)
     assert_contents_unchanged(root_dir, "Review")
     assert_contents_unchanged(root_dir, "Backup")
 
 
+
+@pytest.mark.parametrize('extension', config.image_extensions)
 @pytest.mark.usefixtures("monkeypatch_mock_dropbox", "monkeypatch_redis_do_nothing", "data_from_img_processing")
-def test_gif(tmpdir) -> None:
+def test_image_changed(tmpdir, extension) -> None:
     root_dir = Path(tmpdir)
     make_all_temp_folders(root_dir)
-    run_task_process_entry(".gif", root_dir)
-    assert_file_moved_to_review_and_backup(".gif", root_dir)
-    assert_contents_unchanged(root_dir, "Review")
-    assert_contents_unchanged(root_dir, "Backup")
-
-
-@pytest.mark.usefixtures("monkeypatch_mock_dropbox", "monkeypatch_redis_do_nothing", "data_from_img_processing")
-def test_mov(tmpdir) -> None:
-    root_dir = Path(tmpdir)
-    make_all_temp_folders(root_dir)
-    run_task_process_entry(".mov", root_dir)
-    assert_file_moved_to_review_and_backup(".mov", root_dir)
-    assert_contents_unchanged(root_dir, "Review")
-    assert_contents_unchanged(root_dir, "Backup")
-
-
-@pytest.mark.usefixtures("monkeypatch_mock_dropbox", "monkeypatch_redis_do_nothing", "data_from_img_processing")
-def test_png_changed(tmpdir) -> None:
-    root_dir = Path(tmpdir)
-    make_all_temp_folders(root_dir)
-    run_task_process_entry(".png", root_dir)
-    assert_file_moved_to_review_and_backup(".png", root_dir)
+    run_task_process_entry(extension, root_dir)
+    assert_file_moved_to_review_and_backup(extension, root_dir)
     assert_contents_changed(root_dir, "Review")
     assert_contents_unchanged(root_dir, "Backup")
 
 
+@pytest.mark.parametrize('extension', config.image_extensions)
 @pytest.mark.usefixtures("monkeypatch_mock_dropbox", "monkeypatch_redis_do_nothing", "no_img_processing")
-def test_png_unchanged(tmpdir) -> None:
+def test_image_unchanged(tmpdir, extension) -> None:
     root_dir = Path(tmpdir)
     make_all_temp_folders(root_dir)
-    run_task_process_entry(".png", root_dir)
-    assert_file_moved_to_review_and_backup(".png", root_dir)
+    run_task_process_entry(extension, root_dir)
+    assert_file_moved_to_review_and_backup(extension, root_dir)
     assert_contents_unchanged(root_dir, "Review")
     assert_contents_unchanged(root_dir, "Backup")
 
 
-@pytest.mark.usefixtures("monkeypatch_mock_dropbox", "monkeypatch_redis_do_nothing", "no_img_processing")
-def test_jpeg_unchanged(tmpdir) -> None:
+@pytest.mark.parametrize('extension', config.media_extensions)
+@pytest.mark.usefixtures("monkeypatch_mock_dropbox", "monkeypatch_redis_do_nothing", "data_from_img_processing", "error_parse_date")
+def test_error(tmpdir, extension) -> None:
     root_dir = Path(tmpdir)
     make_all_temp_folders(root_dir)
-    run_task_process_entry(".jpeg", root_dir)
-    assert_file_moved_to_review_and_backup(".jpeg", root_dir)
-    assert_contents_unchanged(root_dir, "Review")
-    assert_contents_unchanged(root_dir, "Backup")
-
-
-@pytest.mark.usefixtures("monkeypatch_mock_dropbox", "monkeypatch_redis_do_nothing", "no_img_processing")
-def test_jpg_unchanged(tmpdir) -> None:
-    root_dir = Path(tmpdir)
-    make_all_temp_folders(root_dir)
-    run_task_process_entry(".jpg", root_dir)
-    assert_file_moved_to_review_and_backup(".jpg", root_dir)
-    assert_contents_unchanged(root_dir, "Review")
-    assert_contents_unchanged(root_dir, "Backup")
-
-
-@pytest.mark.usefixtures("monkeypatch_mock_dropbox", "monkeypatch_redis_do_nothing", "data_from_img_processing")
-def test_jpg_changed(tmpdir) -> None:
-    root_dir = Path(tmpdir)
-    make_all_temp_folders(root_dir)
-    run_task_process_entry(".jpg", root_dir)
-    assert_file_moved_to_review_and_backup(".jpg", root_dir)
-    assert_contents_changed(root_dir, "Review")
-    assert_contents_unchanged(root_dir, "Backup")
-
-
-@pytest.mark.usefixtures("monkeypatch_mock_dropbox", "monkeypatch_redis_do_nothing", "error_img_processing")
-def test_jpg_error(tmpdir) -> None:
-    root_dir = Path(tmpdir)
-    make_all_temp_folders(root_dir)
-    run_task_process_entry(".jpg", root_dir)
-    assert_file_moved_to_error(".jpg", root_dir)
+    run_task_process_entry(extension, root_dir)
+    assert_file_moved_to_error(extension, root_dir)
     assert_contents_unchanged(root_dir, "Error")
 
 
@@ -254,7 +210,6 @@ def test_time_taken_date_used_with_location(tmpdir, settings) -> None:
     time_taken should be assumed to be utc. tests default timezone is "US/Eastern" (utc-05:00).
     in_date_local should be 01.01.2015 00:00, folders created should be 2015 and 01
      """
-
     root_dir = Path(tmpdir)
     make_all_temp_folders(root_dir)
     in_date_naive = dt.datetime(2014, 12, 31, 23, 0)
@@ -292,10 +247,10 @@ def data_from_img_processing(monkeypatch):
 
 
 @pytest.fixture()
-def error_img_processing(monkeypatch):
-    def error_img_processing_mock(*args, **kwargs):
-        raise Exception("This is an excpetion from mock image processing")
-    monkeypatch.setattr('kamera.task.image_processing.main', error_img_processing_mock)
+def error_parse_date(monkeypatch):
+    def error_parse_date_mock(*args, **kwargs):
+        raise Exception("This is an excpetion from mock parse_date")
+    monkeypatch.setattr('kamera.task.parse_date', error_parse_date_mock)
 
 
 class BadInputError(dropbox.exceptions.BadInputError):
