@@ -20,7 +20,7 @@ from typing import Optional
 
 @pytest.mark.usefixtures("monkeypatch_redis_into_fakeredis", "monkeypatch_mock_dropbox", "bypass_dbx_hmac")
 def test_webhook(client, tmpdir, monkeypatch, mock_redis) -> None:
-    account_id = "test_account"
+    account_id = "test_webhook"
     temp_path = Path(tmpdir)
     file_name = "in_file.jpg"
     with open(temp_path / file_name, "w") as file:
@@ -46,7 +46,7 @@ def test_rate_limiter(client, monkeypatch) -> None:
             self.called_times += 1
 
     test_called = TestCalled()
-    account_id = "test_account2"
+    account_id = "test_rate_limiter"
     monkeypatch.setattr('app.check_enqueue_entries', test_called)
 
     request_data = json.dumps({"list_folder": {"accounts": [account_id]}})

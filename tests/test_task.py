@@ -31,6 +31,7 @@ def make_all_temp_folders(root_dir: Path) -> None:
 
 
 def run_task_process_entry(
+    account_id: str,
     ext: str,
     root_dir: Path,
     metadata: Optional[dropbox.files.PhotoMetadata]=None
@@ -42,7 +43,9 @@ def run_task_process_entry(
             path_display=in_file.as_posix(),
             client_modified=default_client_modified,
         )
-    entry = mediatypes.KameraEntry("test_account", dbx_entry, metadata=metadata)
+    entry = mediatypes.KameraEntry(account_id, dbx_entry, metadata=metadata)
+    task.Cloud.dbx_cache[account_id] = MockDropbox()
+    task.Cloud.settings_cache[account_id] = MockSettings()
     task.process_entry(
         entry=entry,
         out_dir=root_dir / "Review",
@@ -105,11 +108,10 @@ def assert_contents_unchanged(root_dir: Path, subfolder: str) -> None:
 def test_video(tmpdir, extension) -> None:
     root_dir = Path(tmpdir)
     make_all_temp_folders(root_dir)
-    run_task_process_entry(extension, root_dir)
+    run_task_process_entry(account_id="test_video", ext=extension, root_dir=root_dir)
     assert_file_moved_to_review_and_backup(extension, root_dir)
     assert_contents_unchanged(root_dir, "Review")
     assert_contents_unchanged(root_dir, "Backup")
-
 
 
 @pytest.mark.parametrize('extension', config.image_extensions)
@@ -117,7 +119,7 @@ def test_video(tmpdir, extension) -> None:
 def test_image_changed(tmpdir, extension) -> None:
     root_dir = Path(tmpdir)
     make_all_temp_folders(root_dir)
-    run_task_process_entry(extension, root_dir)
+    run_task_process_entry(account_id="test_image_changed", ext=extension, root_dir=root_dir)
     assert_file_moved_to_review_and_backup(extension, root_dir)
     assert_contents_changed(root_dir, "Review")
     assert_contents_unchanged(root_dir, "Backup")
@@ -128,7 +130,7 @@ def test_image_changed(tmpdir, extension) -> None:
 def test_image_unchanged(tmpdir, extension) -> None:
     root_dir = Path(tmpdir)
     make_all_temp_folders(root_dir)
-    run_task_process_entry(extension, root_dir)
+    run_task_process_entry(account_id="test_image_unchanged", ext=extension, root_dir=root_dir)
     assert_file_moved_to_review_and_backup(extension, root_dir)
     assert_contents_unchanged(root_dir, "Review")
     assert_contents_unchanged(root_dir, "Backup")
@@ -139,7 +141,7 @@ def test_image_unchanged(tmpdir, extension) -> None:
 def test_error(tmpdir, extension) -> None:
     root_dir = Path(tmpdir)
     make_all_temp_folders(root_dir)
-    run_task_process_entry(extension, root_dir)
+    run_task_process_entry(account_id="test_error", ext=extension, root_dir=root_dir)
     assert_file_moved_to_error(extension, root_dir)
     assert_contents_unchanged(root_dir, "Error")
 
@@ -148,7 +150,7 @@ def test_error(tmpdir, extension) -> None:
 def test_unsupported_ext(tmpdir) -> None:
     root_dir = Path(tmpdir)
     make_all_temp_folders(root_dir)
-    run_task_process_entry(".ext", root_dir)
+    run_task_process_entry(account_id="test_unsupported_ext", ext=".ext", root_dir=root_dir)
     assert_file_not_moved(".ext", root_dir)
     assert_contents_unchanged(root_dir, "Uploads")
 
@@ -167,7 +169,7 @@ def test_client_modified_date_used(tmpdir, settings) -> None:
             tz=pytz.timezone("US/Eastern")
         )
     )
-    run_task_process_entry(".jpg", root_dir)
+    run_task_process_entry(account_id="test_client_modified_date_used", ext=".jpg", root_dir=root_dir)
     assert_file_moved_to_review_and_backup(".jpg", root_dir)
     assert_contents_changed(root_dir, "Review")
     assert_contents_unchanged(root_dir, "Backup")
@@ -193,7 +195,7 @@ def test_time_taken_date_used(tmpdir, settings) -> None:
         location=None,
         time_taken=in_date_naive
     )
-    run_task_process_entry(".jpg", root_dir, metadata)
+    run_task_process_entry(account_id="test_time_taken_date_used", ext=".jpg", root_dir=root_dir, metadata=metadata)
     assert_file_moved_to_review_and_backup(".jpg", root_dir)
     assert_contents_changed(root_dir, "Review")
     assert_contents_unchanged(root_dir, "Backup")
@@ -220,7 +222,7 @@ def test_time_taken_date_used_with_location(tmpdir, settings) -> None:
         location=dropbox.files.GpsCoordinates(latitude=48.8662694, longitude=2.3242583),
         time_taken=in_date_naive
     )
-    run_task_process_entry(".jpg", root_dir, metadata)
+    run_task_process_entry(account_id="test_time_taken_date_used_with_location", ext=".jpg", root_dir=root_dir, metadata=metadata)
     assert_file_moved_to_review_and_backup(".jpg", root_dir)
     assert_contents_changed(root_dir, "Review")
     assert_contents_unchanged(root_dir, "Backup")
@@ -305,25 +307,27 @@ def monkeypatch_mock_dropbox(monkeypatch):
     monkeypatch.setattr('kamera.task.dropbox', mock_module)
 
 
+class MockSettings:
+    def __init__(self):
+        self.default_tz: str = "US/Eastern"
+        self.folder_names: Dict[str, str] = {
+            1: "January",
+            2: "February",
+            3: "March",
+            4: "April",
+            5: "May",
+            6: "June",
+            7: "July",
+            8: "August",
+            9: "September",
+            10: "October",
+            11: "November",
+            12: "December"
+          }
+
+
 @pytest.fixture()
 def settings():
-    class MockSettings:
-        def __init__(self):
-            self.default_tz: str = "US/Eastern"
-            self.folder_names: Dict[str, str] = {
-                1: "January",
-                2: "February",
-                3: "March",
-                4: "April",
-                5: "May",
-                6: "June",
-                7: "July",
-                8: "August",
-                9: "September",
-                10: "October",
-                11: "November",
-                12: "December"
-              }
     return MockSettings()
 
 
