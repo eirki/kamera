@@ -80,9 +80,9 @@ class Task:
         return dbx, settings
 
     def process_entry(self):
+        start_time = dt.datetime.now()
         log.info(f"{self.name}: Processing")
         self.dbx, self.settings = self.load_from_cache(self.account_id)
-        start_time = dt.datetime.now()
         try:
             date = parse_date(
                 self.time_taken,
