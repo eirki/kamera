@@ -5,6 +5,7 @@ from collections import defaultdict
 from pathlib import Path
 from io import BytesIO
 import json
+import asyncio
 
 import yaml
 from dotenv import load_dotenv
@@ -102,34 +103,51 @@ def _load_recognition_data(dbx: Dropbox):
 
     people: Dict[str, List[np.array]] = defaultdict(list)
 
+    loop = asyncio.get_event_loop()
+
     paths = {Path(entry.path_display) for entry in result.entries}
-    jsons = {path for path in paths if path.suffix == ".json"}
-    for file in jsons:
-        name = file.parents[0].name
-        _, response = dbx.files_download(file.as_posix())
-        encoding = np.array(json.loads(response.raw.data))
-        people[name].append(encoding)
+    json_files = {path for path in paths if path.suffix == ".json"}
+    json_tasks = [loop.create_task(_load_encoding_json(file, dbx, people, loop)) for file in json_files]
 
     unencoded_imgs = {
         path for path in paths if (
             path.suffix in image_extensions and
-            path.with_suffix(".json") not in jsons)
+            path.with_suffix(".json") not in json_files)
     }
-    for img in unencoded_imgs:
-        name = img.parents[0].name
-        encoding = _get_facial_encoding(dbx, img)
-        if encoding is not None:
-            json_encoded = json.dumps(encoding.tolist())
-            dbx.files_upload(
-                f=json_encoded.encode(),
-                path=img.with_suffix(".json").as_posix()
-            )
-            people[name].append(encoding)
+    img_tasks = [loop.create_task(_load_encoding_img(file, dbx, people, loop)) for file in unencoded_imgs]
+    loop.run_until_complete(asyncio.wait(json_tasks + img_tasks))
+    loop.close()
     return people
 
 
-def _get_facial_encoding(dbx: Dropbox, img_path: Path) -> np.array:
-    _, response = dbx.files_download(img_path.as_posix())
+async def _load_encoding_json(file, dbx, people, loop):
+        name = file.parents[0].name
+        _, response = await loop.run_in_executor(
+            None, dbx.files_download, file.as_posix()
+        )
+        encoding = np.array(json.loads(response.raw.data))
+        people[name].append(encoding)
+
+
+async def _load_encoding_img(img, dbx, people, loop):
+        name = img.parents[0].name
+        _, response = await loop.run_in_executor(
+            None, dbx.files_download, img.as_posix()
+        )
+        encoding = _get_facial_encoding(response, img)
+        if encoding is None:
+            return
+        json_encoded = json.dumps(encoding.tolist())
+        await loop.run_in_executor(
+            None,
+            dbx.files_upload,
+            f=json_encoded.encode(),
+            path=img.with_suffix(".json").as_posix()
+        )
+        people[name].append(encoding)
+
+
+def _get_facial_encoding(response, img_path: Path) -> np.array:
     loaded_img = face_recognition.load_image_file(BytesIO(response.raw.data))
     encodings = face_recognition.face_encodings(loaded_img)
     if len(encodings) == 0:
