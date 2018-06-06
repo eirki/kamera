@@ -27,7 +27,6 @@ app = Flask(__name__)
 
 redis_client = redis.from_url(config.redis_url)
 queue = rq.Queue(connection=redis_client)
-listen = ['default']
 running_jobs_registry = rq.registry.StartedJobRegistry(connection=redis_client)
 
 
@@ -57,6 +56,7 @@ def basic_auth() -> Optional[Response]:
     )
 
     auth = request.authorization
+    log.debug(auth)
     return (error_resp
             if not (auth or check_auth(auth.username, auth.password))
             else None)
@@ -116,8 +116,8 @@ def check_enqueue_entries(account_id: str):
             config.backup_path,
             config.errors_path
         )
-        queue.enqueue_call(
-            func=task.process_entry,
+        queue.enqueue(
+            task.process_entry,
             result_ttl=600,
             job_id=job_id
         )
