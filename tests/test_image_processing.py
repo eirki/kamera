@@ -181,16 +181,16 @@ def settings():
                 lat=48.8566,
                 lng=2.3522,
                 spots=[
-                  {
-                    "name": "Place de la Concorde",
-                    "lat": 48.8662,
-                    "lng": 2.3242
-                  },
-                  {
-                    "name": "10e arrondissement",
-                    "lat": 48.8698,
-                    "lng": 2.3523
-                  }
+                  config.Spot(
+                    name="Place de la Concorde",
+                    lat=48.8662,
+                    lng=2.3242
+                  ),
+                  config.Spot(
+                    name="10e arrondissement",
+                    lat=48.8698,
+                    lng=2.3523
+                  )
                 ]
               )
             ]

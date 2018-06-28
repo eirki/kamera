@@ -6,6 +6,7 @@ from pathlib import Path
 from io import BytesIO
 import json
 import asyncio
+from typing import NamedTuple
 
 import yaml
 from dotenv import load_dotenv
@@ -65,32 +66,33 @@ def _load_settings(dbx: Dropbox):
     return settings
 
 
-class Area:
-    def __init__(self, name, lat: float, lng: float, spots: List[dict]) -> None:
-        self.name: str = name
-        self.lat: float = lat
-        self.lng: float = lng
-        self.spots: List[Spot] = [Spot(**spot) for spot in spots]
-
-    def __repr__(self):
-        return self.name
+class Spot(NamedTuple):
+    name: str
+    lat: float
+    lng: float
 
 
-class Spot:
-    def __init__(self, name: str, lat: float, lng: float) -> None:
-        self.name: str = name
-        self.lat: float = lat
-        self.lng: float = lng
-
-    def __repr__(self):
-        return self.name
+class Area(NamedTuple):
+    name: str
+    lat: float
+    lng: float
+    spots: List[Spot]
 
 
 def _load_location_data(dbx: Dropbox):
     places_file = config_path / "places.yaml"
     _, response = dbx.files_download(places_file.as_posix())
-    areas = [Area(**location) for location in location_dict]
     location_dict = yaml.safe_load(response.raw.data)
+    areas = [
+        Area(
+            name=location["name"],
+            lat=location["lat"],
+            lng=location["lng"],
+            spots=[Spot(**spot) for spot in location["spots"]]
+        )
+        for location in location_dict
+    ]
+    1/0
     return areas
 
 
