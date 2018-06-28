@@ -92,7 +92,6 @@ def _load_location_data(dbx: Dropbox):
         )
         for location in location_dict
     ]
-    1/0
     return areas
 
 
