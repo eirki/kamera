@@ -61,7 +61,7 @@ class Settings:
 def _load_settings(dbx: Dropbox):
     settings_file = config_path / "settings.yaml"
     _, response = dbx.files_download(settings_file.as_posix())
-    settings = yaml.load(response.raw.data)
+    settings = yaml.safe_load(response.raw.data)
     return settings
 
 
@@ -89,8 +89,8 @@ class Spot:
 def _load_location_data(dbx: Dropbox):
     places_file = config_path / "places.yaml"
     _, response = dbx.files_download(places_file.as_posix())
-    location_dict = yaml.load(response.raw.data)
     areas = [Area(**location) for location in location_dict]
+    location_dict = yaml.safe_load(response.raw.data)
     return areas
 
 
