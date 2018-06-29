@@ -7,6 +7,7 @@ from io import BytesIO
 import json
 import asyncio
 from typing import NamedTuple
+import functools
 
 import yaml
 from dotenv import load_dotenv
@@ -139,11 +140,14 @@ async def _load_encoding_img(img, dbx, people, loop):
         if encoding is None:
             return
         json_encoded = json.dumps(encoding.tolist())
-        await loop.run_in_executor(
-            None,
+        upload_func = functools.partial(
             dbx.files_upload,
             f=json_encoded.encode(),
             path=img.with_suffix(".json").as_posix()
+        )
+        await loop.run_in_executor(
+            None,
+            upload_func
         )
         people[name].append(encoding)
 
