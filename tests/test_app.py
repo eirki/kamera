@@ -13,7 +13,6 @@ import rq
 import fakeredis
 
 import app
-from kamera import config
 
 from typing import Optional
 
