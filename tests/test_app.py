@@ -18,7 +18,11 @@ from kamera import config
 from typing import Optional
 
 
-@pytest.mark.usefixtures("monkeypatch_redis_into_fakeredis", "monkeypatch_mock_dropbox", "bypass_dbx_hmac")
+@pytest.mark.usefixtures(
+    "monkeypatch_redis_into_fakeredis",
+    "monkeypatch_mock_dropbox",
+    "bypass_dbx_hmac"
+)
 def test_webhook(client, tmpdir, monkeypatch, mock_redis) -> None:
     account_id = "test_webhook"
     temp_path = Path(tmpdir)
@@ -36,7 +40,11 @@ def test_webhook(client, tmpdir, monkeypatch, mock_redis) -> None:
     assert app.queue.job_ids == [f"{account_id}:{file_name}"]
 
 
-@pytest.mark.usefixtures("monkeypatch_redis_into_fakeredis", "monkeypatch_mock_dropbox", "bypass_dbx_hmac")
+@pytest.mark.usefixtures(
+    "monkeypatch_redis_into_fakeredis",
+    "monkeypatch_mock_dropbox",
+    "bypass_dbx_hmac"
+)
 def test_rate_limiter(client, monkeypatch) -> None:
     class TestCalled:
         def __init__(self):

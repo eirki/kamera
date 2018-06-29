@@ -141,7 +141,12 @@ def test_resize_tag_coordinates(settings) -> None:
     filename = "resize, spot.jpg"
     dimensions = dropbox.files.Dimensions(height=3024, width=4032)
     coordinates = dropbox.files.GpsCoordinates(latitude=48.8662694, longitude=2.3242583)
-    output = run_image_processing_main(filename, settings, dimensions=dimensions, coordinates=coordinates)
+    output = run_image_processing_main(
+        filename,
+        settings,
+        dimensions=dimensions,
+        coordinates=coordinates
+    )
     desired_output = fetch_desired_output(filename)
     assert_image_attrs_identical(output, desired_output)
 

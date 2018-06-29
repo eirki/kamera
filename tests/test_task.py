@@ -66,7 +66,8 @@ def _get_folder_contents(root_dir: Path):
 
 def assert_file_not_moved(ext: str, root_dir: Path) -> None:
     assert (root_dir / "Uploads").glob(f"*in_file{ext}") != []
-    uploads_contents, review_contents, backup_contents, error_contents = _get_folder_contents(root_dir)
+    (uploads_contents, review_contents,
+        backup_contents, error_contents) = _get_folder_contents(root_dir)
     assert len(uploads_contents) == 1
     assert review_contents == []
     assert backup_contents == []
@@ -75,7 +76,8 @@ def assert_file_not_moved(ext: str, root_dir: Path) -> None:
 
 def assert_file_moved_to_review_and_backup(ext: str, root_dir: Path) -> None:
     assert (root_dir / "Uploads").glob(f"*in_file{ext}") != []
-    uploads_contents, review_contents, backup_contents, error_contents = _get_folder_contents(root_dir)
+    (uploads_contents, review_contents,
+        backup_contents, error_contents) = _get_folder_contents(root_dir)
     assert uploads_contents == []
     assert len(review_contents) == 3
     assert len(backup_contents) == 3
@@ -84,7 +86,8 @@ def assert_file_moved_to_review_and_backup(ext: str, root_dir: Path) -> None:
 
 def assert_file_moved_to_error(ext: str, root_dir: Path) -> None:
     assert (root_dir / "Uploads").glob(f"*in_file{ext}") != []
-    uploads_contents, review_contents, backup_contents, error_contents = _get_folder_contents(root_dir)
+    (uploads_contents, review_contents,
+        backup_contents, error_contents) = _get_folder_contents(root_dir)
     assert uploads_contents == []
     assert review_contents == []
     assert backup_contents == []
@@ -106,7 +109,11 @@ def assert_contents_unchanged(root_dir: Path, subfolder: str) -> None:
 
 
 @pytest.mark.parametrize('extension', config.video_extensions)
-@pytest.mark.usefixtures("monkeypatch_mock_dropbox", "monkeypatch_redis_do_nothing", "data_from_img_processing")
+@pytest.mark.usefixtures(
+    "monkeypatch_mock_dropbox",
+    "monkeypatch_redis_do_nothing",
+    "data_from_img_processing"
+)
 def test_video(tmpdir, extension) -> None:
     root_dir = Path(tmpdir)
     make_all_temp_folders(root_dir)
@@ -117,7 +124,11 @@ def test_video(tmpdir, extension) -> None:
 
 
 @pytest.mark.parametrize('extension', config.image_extensions)
-@pytest.mark.usefixtures("monkeypatch_mock_dropbox", "monkeypatch_redis_do_nothing", "data_from_img_processing")
+@pytest.mark.usefixtures(
+    "monkeypatch_mock_dropbox",
+    "monkeypatch_redis_do_nothing",
+    "data_from_img_processing"
+)
 def test_image_changed(tmpdir, extension) -> None:
     root_dir = Path(tmpdir)
     make_all_temp_folders(root_dir)
@@ -128,7 +139,11 @@ def test_image_changed(tmpdir, extension) -> None:
 
 
 @pytest.mark.parametrize('extension', config.image_extensions)
-@pytest.mark.usefixtures("monkeypatch_mock_dropbox", "monkeypatch_redis_do_nothing", "no_img_processing")
+@pytest.mark.usefixtures(
+    "monkeypatch_mock_dropbox",
+    "monkeypatch_redis_do_nothing",
+    "no_img_processing"
+)
 def test_image_unchanged(tmpdir, extension) -> None:
     root_dir = Path(tmpdir)
     make_all_temp_folders(root_dir)
@@ -139,7 +154,12 @@ def test_image_unchanged(tmpdir, extension) -> None:
 
 
 @pytest.mark.parametrize('extension', config.media_extensions)
-@pytest.mark.usefixtures("monkeypatch_mock_dropbox", "monkeypatch_redis_do_nothing", "data_from_img_processing", "error_parse_date")
+@pytest.mark.usefixtures(
+    "monkeypatch_mock_dropbox",
+    "monkeypatch_redis_do_nothing",
+    "data_from_img_processing",
+    "error_parse_date"
+)
 def test_error(tmpdir, extension) -> None:
     root_dir = Path(tmpdir)
     make_all_temp_folders(root_dir)
@@ -148,7 +168,10 @@ def test_error(tmpdir, extension) -> None:
     assert_contents_unchanged(root_dir, "Error")
 
 
-@pytest.mark.usefixtures("monkeypatch_mock_dropbox", "monkeypatch_redis_do_nothing")
+@pytest.mark.usefixtures(
+    "monkeypatch_mock_dropbox",
+    "monkeypatch_redis_do_nothing"
+)
 def test_unsupported_ext(tmpdir) -> None:
     root_dir = Path(tmpdir)
     make_all_temp_folders(root_dir)
@@ -157,7 +180,10 @@ def test_unsupported_ext(tmpdir) -> None:
     assert_contents_unchanged(root_dir, "Uploads")
 
 
-@pytest.mark.usefixtures("monkeypatch_mock_dropbox", "monkeypatch_redis_do_nothing", "data_from_img_processing")
+@pytest.mark.usefixtures(
+    "monkeypatch_mock_dropbox",
+    "monkeypatch_redis_do_nothing",
+    "data_from_img_processing")
 def test_client_modified_date_used(tmpdir, settings) -> None:
     """datetime sent to image_processing (default_client_modified) is timezone-naive 01.01.2000 00:00
     this should be assumed to be utc. tests default timezone is "US/Eastern" (utc-05:00).
@@ -181,7 +207,11 @@ def test_client_modified_date_used(tmpdir, settings) -> None:
     assert month_folder.name == settings.folder_names[client_modified_local.month]
 
 
-@pytest.mark.usefixtures("monkeypatch_mock_dropbox", "monkeypatch_redis_do_nothing", "data_from_img_processing")
+@pytest.mark.usefixtures(
+    "monkeypatch_mock_dropbox",
+    "monkeypatch_redis_do_nothing",
+    "data_from_img_processing"
+)
 def test_time_taken_date_used(tmpdir, settings) -> None:
     """datetime sent to image_processing (in_date_naive) is timezone-naive 01.01.2010 00:00
     this should be assumed to be utc. tests default timezone is "US/Eastern" (utc-05:00).
@@ -197,7 +227,12 @@ def test_time_taken_date_used(tmpdir, settings) -> None:
         location=None,
         time_taken=in_date_naive
     )
-    run_task_process_entry(account_id="test_time_taken_date_used", ext=".jpg", root_dir=root_dir, metadata=metadata)
+    run_task_process_entry(
+        account_id="test_time_taken_date_used",
+        ext=".jpg",
+        root_dir=root_dir,
+        metadata=metadata
+    )
     assert_file_moved_to_review_and_backup(".jpg", root_dir)
     assert_contents_changed(root_dir, "Review")
     assert_contents_unchanged(root_dir, "Backup")
@@ -207,7 +242,11 @@ def test_time_taken_date_used(tmpdir, settings) -> None:
     assert month_folder.name == settings.folder_names[in_date_local.month]
 
 
-@pytest.mark.usefixtures("monkeypatch_mock_dropbox", "monkeypatch_redis_do_nothing", "data_from_img_processing")
+@pytest.mark.usefixtures(
+    "monkeypatch_mock_dropbox",
+    "monkeypatch_redis_do_nothing",
+    "data_from_img_processing"
+)
 def test_time_taken_date_used_with_location(tmpdir, settings) -> None:
     """datetime sent to image_processing (in_date_naive) is timezone-naive 12.31.2014 23:00,
     with gps location in timezone "Europe/Paris"
@@ -234,7 +273,11 @@ def test_time_taken_date_used_with_location(tmpdir, settings) -> None:
     assert month_folder.name == settings.folder_names[in_date_local.month]
 
 
-@pytest.mark.usefixtures("monkeypatch_mock_dropbox", "monkeypatch_redis_do_nothing", "data_from_img_processing")
+@pytest.mark.usefixtures(
+    "monkeypatch_mock_dropbox",
+    "monkeypatch_redis_do_nothing",
+    "data_from_img_processing"
+)
 def test_settings_caching(monkeypatch, tmpdir, settings) -> None:
     monkeypatch.setattr('kamera.task.config.Settings', MockSettings)
     account_id = "test_settings_caching"

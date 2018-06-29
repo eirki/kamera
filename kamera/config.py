@@ -109,14 +109,20 @@ def _load_recognition_data(dbx: Dropbox):
 
     paths = {Path(entry.path_display) for entry in result.entries}
     json_files = {path for path in paths if path.suffix == ".json"}
-    json_tasks = [loop.create_task(_load_encoding_json(file, dbx, people, loop)) for file in json_files]
+    json_tasks = [
+        loop.create_task(_load_encoding_json(file, dbx, people, loop))
+        for file in json_files
+    ]
 
     unencoded_imgs = {
         path for path in paths if (
             path.suffix in image_extensions and
             path.with_suffix(".json") not in json_files)
     }
-    img_tasks = [loop.create_task(_load_encoding_img(file, dbx, people, loop)) for file in unencoded_imgs]
+    img_tasks = [
+        loop.create_task(_load_encoding_img(file, dbx, people, loop))
+        for file in unencoded_imgs
+    ]
     loop.run_until_complete(asyncio.wait(json_tasks + img_tasks))
     loop.close()
     return people
