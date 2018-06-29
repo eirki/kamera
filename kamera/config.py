@@ -104,7 +104,7 @@ def _load_recognition_data(dbx: Dropbox):
 
     people: Dict[str, List[np.array]] = defaultdict(list)
 
-    loop = asyncio.get_event_loop()
+    loop = asyncio.new_event_loop()
 
     paths = {Path(entry.path_display) for entry in result.entries}
     json_files = {path for path in paths if path.suffix == ".json"}
