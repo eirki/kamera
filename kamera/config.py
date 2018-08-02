@@ -129,33 +129,33 @@ def _load_recognition_data(dbx: Dropbox):
 
 
 async def _load_encoding_json(file, dbx, people, loop):
-        name = file.parents[0].name
-        _, response = await loop.run_in_executor(
-            None, dbx.files_download, file.as_posix()
-        )
-        encoding = np.array(json.loads(response.raw.data))
-        people[name].append(encoding)
+    name = file.parents[0].name
+    _, response = await loop.run_in_executor(
+        None, dbx.files_download, file.as_posix()
+    )
+    encoding = np.array(json.loads(response.raw.data))
+    people[name].append(encoding)
 
 
 async def _load_encoding_img(img, dbx, people, loop):
-        name = img.parents[0].name
-        _, response = await loop.run_in_executor(
-            None, dbx.files_download, img.as_posix()
-        )
-        encoding = _get_facial_encoding(response, img)
-        if encoding is None:
-            return
-        json_encoded = json.dumps(encoding.tolist())
-        upload_func = functools.partial(
-            dbx.files_upload,
-            f=json_encoded.encode(),
-            path=img.with_suffix(".json").as_posix()
-        )
-        await loop.run_in_executor(
-            None,
-            upload_func
-        )
-        people[name].append(encoding)
+    name = img.parents[0].name
+    _, response = await loop.run_in_executor(
+        None, dbx.files_download, img.as_posix()
+    )
+    encoding = _get_facial_encoding(response, img)
+    if encoding is None:
+        return
+    json_encoded = json.dumps(encoding.tolist())
+    upload_func = functools.partial(
+        dbx.files_upload,
+        f=json_encoded.encode(),
+        path=img.with_suffix(".json").as_posix()
+    )
+    await loop.run_in_executor(
+        None,
+        upload_func
+    )
+    people[name].append(encoding)
 
 
 def _get_facial_encoding(response, img_path: Path) -> np.array:
