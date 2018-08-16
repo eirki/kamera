@@ -22,3 +22,4 @@ rq
 rq-dashboard
 PyYAML
 python-dotenv
+imagehash

@@ -14,6 +14,7 @@ import requests
 import redis
 from PIL import Image
 import imagehash
+
 from kamera import config
 from kamera import image_processing
 
