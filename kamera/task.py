@@ -5,17 +5,19 @@ from kamera.logger import log
 from pathlib import Path
 import datetime as dt
 from functools import partial
+from io import BytesIO
 
 import pytz
 from timezonefinderL import TimezoneFinder
 import dropbox
 import requests
 import redis
-
+from PIL import Image
+import imagehash
 from kamera import config
 from kamera import image_processing
 
-from typing import Callable, Optional, Dict
+from typing import Callable, Optional, Dict, Tuple
 
 
 class Task:
@@ -50,8 +52,8 @@ class Task:
         self.backup_dir: Path = backup_dir
         self.error_dir: Path = error_dir
 
-        self.dbx: dropbox.Dropbox = None
-        self.settings: config.Settings = None
+        self.dbx: Optional[dropbox.Dropbox] = None
+        self.settings: Optional[config.Settings] = None
 
     def __repr__(self):
         return repr(self.name)
@@ -96,14 +98,32 @@ class Task:
                 copy_entry(self.dbx, self.path, (self.out_dir / subfolder))
             elif self.path.suffix.lower() in config.image_extensions:
                 _, response = download_entry(self.dbx, self.path.as_posix())
+                in_data = response.raw.data
                 new_data = image_processing.main(
-                    data=response.raw.data,
+                    data=in_data,
                     filepath=self.path,
                     date=date,
                     settings=self.settings,
                     coordinates=self.coordinates,
                     dimensions=self.dimensions,
                 )
+
+                img_hash = get_hash(data=(in_data if new_data is None else new_data))
+                duplicate, duplicate_better = check_for_duplicate(
+                    img_hash,
+                    self.dbx,
+                    self.redis_client,
+                    self.account_id,
+                    self.dimensions
+                )
+                if duplicate and duplicate_better:
+                    log.info(f"{self.name}: Found better duplicate, finishing")
+                    move_entry(self.dbx, self.path, (self.backup_dir / subfolder))
+                    return
+                elif duplicate and not duplicate_better:
+                    log.info(f"{self.name}: Found worse duplicate, deleting")
+                    delete_duplicate(duplicate, img_hash, self.dbx, self.redis_client, self.account_id)
+                store_hash(img_hash, (self.out_dir / subfolder / self.path.name), self.redis_client, self.account_id)
 
                 if new_data is None:
                     copy_entry(self.dbx, self.path, (self.out_dir / subfolder))
@@ -120,6 +140,55 @@ class Task:
             duration = end_time - start_time
             log.info(f"{self.name}, duration: {duration}")
             log.info("\n")
+
+
+def get_hash(data: bytes) -> str:
+    img = Image.open(BytesIO(data))
+    img_hash = imagehash.whash(img)
+    return img_hash
+
+
+def check_for_duplicate(
+    img_hash: str,
+    dbx: dropbox.Dropbox,
+    redis_client: redis.Redis,
+    account_id: str,
+    dimensions: dropbox.files.Dimensions
+)-> Tuple[Optional[str], Optional[bool]]:
+    file_path = redis_client.hget(f"user:{account_id}", f"hash:{img_hash}")
+    if file_path is None:
+        return None, None
+    file_path = file_path.decode()
+
+    try:
+        dup_entry = dbx.files_get_metadata(file_path, include_media_info=True)
+    except dropbox.exceptions.ApiError:
+        return None, None
+    dup_metadata = dup_entry.media_info.get_metadata() if dup_entry.media_info else None
+
+    size = dimensions.height * dimensions.width
+    size_dup = dup_metadata.dimensions.height * dup_metadata.dimensions.width
+    return dup_entry, (size_dup >= size)
+
+
+def delete_duplicate(
+    entry: dropbox.files.FileMetadata,
+    img_hash: str,
+    dbx: dropbox.Dropbox,
+    redis_client: redis.Redis,
+    account_id: str
+) -> None:
+    dbx.files_delete(entry.path_display)
+    redis_client.hdel(f"user:{account_id}", f"hash:{img_hash}")
+
+
+def store_hash(
+    img_hash: str,
+    file_path: Path,
+    redis_client: redis.Redis,
+    account_id: str,
+) -> None:
+    redis_client.hset(f"user:{account_id}", f"hash:{img_hash}", file_path.as_posix())
 
 
 def _execute_transfer(dbx: dropbox.Dropbox, transfer_func: Callable, destination_folder: Path):
