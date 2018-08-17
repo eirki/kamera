@@ -97,41 +97,45 @@ class Task:
 
             if self.path.suffix.lower() in config.video_extensions:
                 copy_entry(self.dbx, self.path, (self.out_dir / subfolder))
-            elif self.path.suffix.lower() in config.image_extensions:
-                _, response = download_entry(self.dbx, self.path.as_posix())
-                in_data = response.raw.data
-                new_data = image_processing.main(
-                    data=in_data,
-                    filepath=self.path,
-                    date=date,
-                    settings=self.settings,
-                    coordinates=self.coordinates,
-                    dimensions=self.dimensions,
-                )
-
-                img_hash = get_hash(data=(in_data if new_data is None else new_data))
-                duplicate, duplicate_better = check_for_duplicate(
-                    img_hash,
-                    self.dbx,
-                    self.redis_client,
-                    self.account_id,
-                    self.dimensions
-                )
-                if duplicate and duplicate_better:
-                    log.info(f"{self.name}: Found better duplicate, finishing")
-                    move_entry(self.dbx, self.path, (self.backup_dir / subfolder))
-                    return
-                elif duplicate and not duplicate_better:
-                    log.info(f"{self.name}: Found worse duplicate, deleting")
-                    delete_duplicate(duplicate, img_hash, self.dbx, self.redis_client, self.account_id)
-                store_hash(img_hash, (self.out_dir / subfolder / self.path.name), self.redis_client, self.account_id)
-
-                if new_data is None:
-                    copy_entry(self.dbx, self.path, (self.out_dir / subfolder))
-                else:
-                    upload_entry(self.dbx, self.path, new_data, (self.out_dir / subfolder))
-            else:
+                move_entry(self.dbx, self.path, (self.backup_dir / subfolder))
                 return
+
+            elif self.path.suffix.lower() not in config.image_extensions:
+                return
+
+            _, response = download_entry(self.dbx, self.path.as_posix())
+            in_data = response.raw.data
+            img_hash = get_hash(data=in_data)
+            duplicate, duplicate_better = check_for_duplicate(
+                img_hash=img_hash,
+                dbx=self.dbx,
+                redis_client=self.redis_client,
+                account_id=self.account_id,
+                dimensions=self.dimensions
+            )
+            if duplicate and duplicate_better:
+                log.info(f"{self.name}: Found better duplicate, finishing")
+                move_entry(self.dbx, self.path, (self.backup_dir / subfolder))
+                return
+
+            new_data = image_processing.main(
+                data=in_data,
+                filepath=self.path,
+                date=date,
+                settings=self.settings,
+                coordinates=self.coordinates,
+                dimensions=self.dimensions,
+            )
+
+            if duplicate and not duplicate_better:
+                log.info(f"{self.name}: Found worse duplicate, deleting")
+                delete_duplicate(duplicate, img_hash, self.dbx, self.redis_client, self.account_id)
+
+            if new_data is None:
+                copy_entry(self.dbx, self.path, (self.out_dir / subfolder))
+            else:
+                upload_entry(self.dbx, self.path, new_data, (self.out_dir / subfolder))
+            store_hash(img_hash, (self.out_dir / subfolder / self.path.name), self.redis_client, self.account_id)
             move_entry(self.dbx, self.path, (self.backup_dir / subfolder))
         except Exception:
             log.exception(f"Exception occured, moving to Error subfolder: {self.name}")
