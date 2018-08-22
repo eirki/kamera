@@ -21,6 +21,9 @@ from kamera import image_processing
 from typing import Callable, Optional, Dict, Tuple
 
 
+seconds_in_fortnight = int(dt.timedelta(weeks=1).total_seconds())
+
+
 class Task:
     dbx_cache: Dict[str, dropbox.Dropbox] = {}
     settings_cache: Dict[str, Dict] = {}
@@ -156,7 +159,7 @@ def check_for_duplicate(
     account_id: str,
     dimensions: dropbox.files.Dimensions
 )-> Tuple[Optional[str], Optional[bool]]:
-    file_path = redis_client.hget(f"user:{account_id}", f"hash:{img_hash}")
+    file_path = redis_client.get(f"user:{account_id}, hash:{img_hash}")
     if file_path is None:
         return None, None
     file_path = file_path.decode()
@@ -180,7 +183,7 @@ def delete_duplicate(
     account_id: str
 ) -> None:
     dbx.files_delete(entry.path_display)
-    redis_client.hdel(f"user:{account_id}", f"hash:{img_hash}")
+    redis_client.delete(f"user:{account_id}, hash:{img_hash}")
 
 
 def store_hash(
@@ -189,7 +192,8 @@ def store_hash(
     redis_client: redis.Redis,
     account_id: str,
 ) -> None:
-    redis_client.hset(f"user:{account_id}", f"hash:{img_hash}", file_path.as_posix())
+    redis_client.set(f"user:{account_id}, hash:{img_hash}", file_path.as_posix())
+    redis_client.expire(f"user:{account_id}, hash:{img_hash}", seconds_in_fortnight)
 
 
 def _execute_transfer(dbx: dropbox.Dropbox, transfer_func: Callable, destination_folder: Path):
