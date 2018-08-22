@@ -8,6 +8,10 @@ faces*
 testdata*
 *cursor
 
+# Files generated in tests
+tests/test_data/config/people/Biden/biden.json
+tests/test_data/config/people/Obama/obama3.json
+
 # Elastic Beanstalk Files
 
 .elasticbeanstalk/*
