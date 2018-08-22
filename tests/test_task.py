@@ -81,26 +81,26 @@ def _get_folder_contents(root_dir: Path):
 
 def assert_file_not_moved(root_dir: Path) -> None:
     uploads_contents, review_contents, backup_contents, error_contents = _get_folder_contents(root_dir)
+    assert error_contents == []
     assert len(uploads_contents) == 1
     assert review_contents == []
     assert backup_contents == []
-    assert error_contents == []
 
 
 def assert_file_moved_to_review_and_backup(root_dir: Path) -> None:
     uploads_contents, review_contents, backup_contents, error_contents = _get_folder_contents(root_dir)
+    assert error_contents == []
     assert uploads_contents == []
     assert len(review_contents) == 3
     assert len(backup_contents) == 3
-    assert error_contents == []
 
 
 def assert_file_moved_to_error(root_dir: Path) -> None:
     uploads_contents, review_contents, backup_contents, error_contents = _get_folder_contents(root_dir)
+    assert len(error_contents) == 1
     assert uploads_contents == []
     assert review_contents == []
     assert backup_contents == []
-    assert len(error_contents) == 1
 
 
 def assert_contents_changed(root_dir: Path, subfolder: str) -> None:
@@ -306,10 +306,10 @@ def test_duplicate_worse(tmpdir) -> None:
     )
     run_task_process_entry(test_name="test_duplicate_worse", ext=".jpg", root_dir=root_dir, file_name="better", metadata=metadata)
     uploads_contents, review_contents, backup_contents, error_contents = _get_folder_contents(root_dir)
+    assert error_contents == []
     assert uploads_contents == []
     assert len(review_contents) == 3
     assert len(backup_contents) == 4
-    assert error_contents == []
     assert len(list((root_dir / "Review").rglob("*worse.jpg"))) == 0
     assert len(list((root_dir / "Review").rglob("*better.jpg"))) == 1
     assert len(list((root_dir / "Backup").rglob("*worse.jpg"))) == 1
@@ -329,10 +329,10 @@ def test_duplicate_better(tmpdir) -> None:
     )
     run_task_process_entry(test_name="test_duplicate_better", ext=".jpg", root_dir=root_dir, file_name="worse", metadata=metadata)
     uploads_contents, review_contents, backup_contents, error_contents = _get_folder_contents(root_dir)
+    assert error_contents == []
     assert uploads_contents == []
     assert len(review_contents) == 3
     assert len(backup_contents) == 4
-    assert error_contents == []
     assert len(list((root_dir / "Review").rglob("*worse.jpg"))) == 0
     assert len(list((root_dir / "Review").rglob("*better.jpg"))) == 1
     assert len(list((root_dir / "Backup").rglob("*worse.jpg"))) == 1
@@ -396,7 +396,10 @@ class MockDropbox:
         os.makedirs(path)
 
     def files_get_metadata(self, file_path, include_media_info=False):
-        img = Image.open(file_path)
+        try:
+            img = Image.open(file_path)
+        except FileNotFoundError:
+            raise dropbox.exceptions.ApiError('request_id', 'error', 'user_message_text', 'user_message_locale')
         metadata = dropbox.files.PhotoMetadata(
             dimensions=dropbox.files.Dimensions(width=img.width, height=img.height),
             location=None,
