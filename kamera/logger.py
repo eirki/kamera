@@ -6,9 +6,7 @@ import os
 log = logging.getLogger()
 log.setLevel(os.environ.get("LOGLEVEL", "INFO"))
 
-formatter = logging.Formatter(
-    "%(filename)s %(levelname)s - %(message)s"
-)
+formatter = logging.Formatter("%(filename)s %(levelname)s - %(message)s")
 ch = logging.StreamHandler()
 ch.setLevel(os.environ.get("LOGLEVEL", "INFO"))
 ch.setFormatter(formatter)

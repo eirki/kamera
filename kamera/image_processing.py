@@ -20,17 +20,20 @@ from kamera import config
 from kamera import recognition
 
 
-def get_closest_area(lat: float, lng: float, locations: List[config.Area]) -> Optional[config.Area]:
+def get_closest_area(
+    lat: float, lng: float, locations: List[config.Area]
+) -> Optional[config.Area]:
     """Return area if image taken within 50 km from center of area"""
     distances = [
-        (great_circle((area.lat, area.lng), (lat, lng)).km, area)
-        for area in locations
+        (great_circle((area.lat, area.lng), (lat, lng)).km, area) for area in locations
     ]
     distance, closest_area = min(distances)
     return closest_area if distance < 50 else None
 
 
-def get_closest_spot(lat: float, lng: float, area: config.Area) -> Optional[config.Spot]:
+def get_closest_spot(
+    lat: float, lng: float, area: config.Area
+) -> Optional[config.Spot]:
     """Return closest spot if image taken within 100 m"""
     if not area.spots:
         return None
@@ -95,13 +98,14 @@ def add_tag(data: bytes, tags: List[str]) -> bytes:
     return new_data
 
 
-def main(data: bytes,
-         filepath: Path,
-         date: dt.datetime,
-         settings: config.Settings,
-         coordinates: Optional[dropbox.files.GpsCoordinates],
-         dimensions: Optional[dropbox.files.Dimensions],
-         ) -> Optional[bytes]:
+def main(
+    data: bytes,
+    filepath: Path,
+    date: dt.datetime,
+    settings: config.Settings,
+    coordinates: Optional[dropbox.files.GpsCoordinates],
+    dimensions: Optional[dropbox.files.Dimensions],
+) -> Optional[bytes]:
     data_changed = False
     name = filepath.stem
 
@@ -134,7 +138,7 @@ def main(data: bytes,
         geotag = get_geo_tag(
             lat=coordinates.latitude,
             lng=coordinates.longitude,
-            locations=settings.locations
+            locations=settings.locations,
         )
         if geotag is not None:
             tags.append(geotag)

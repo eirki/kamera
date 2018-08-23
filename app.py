@@ -31,7 +31,7 @@ running_jobs_registry = rq.registry.StartedJobRegistry(connection=redis_client)
 
 
 def get_redis_client():
-    redis_client = getattr(g, '_redis_client', None)
+    redis_client = getattr(g, "_redis_client", None)
     if redis_client is None:
         redis_client = redis.from_url(config.redis_url)
         g._redis_client = redis_client
@@ -42,24 +42,25 @@ def get_redis_client():
 # from https://github.com/eoranged/rq-dashboard/issues/75
 def check_auth(username, password) -> bool:
     return (
-        username == config.rq_dashboard_username and
-        password == config.rq_dashboard_password
+        username == config.rq_dashboard_username
+        and password == config.rq_dashboard_password
     )
 
 
 def basic_auth() -> Optional[Response]:
     """Ensure basic authorization."""
     error_resp = Response(
-        'Could not verify your access level for that URL.\n'
-        'You have to login with proper credentials', 401,
-        {'WWW-Authenticate': 'Basic realm="Login Required"'}
+        "Could not verify your access level for that URL.\n"
+        "You have to login with proper credentials",
+        401,
+        {"WWW-Authenticate": 'Basic realm="Login Required"'},
     )
 
     auth = request.authorization
     log.debug(auth)
-    return (error_resp
-            if not (auth or check_auth(auth.username, auth.password))
-            else None)
+    return (
+        error_resp if not (auth or check_auth(auth.username, auth.password)) else None
+    )
 
 
 app.config.from_object(rq_dashboard.default_settings)
@@ -84,21 +85,21 @@ def time_since_last_request_greater_than_limit(account_id: str) -> bool:
     return False
 
 
-@app.route('/')
+@app.route("/")
 def hello_world() -> str:
     return f"{config.app_id}.home"
 
 
-@app.route('/kamera', methods=['GET'])
+@app.route("/kamera", methods=["GET"])
 def verify() -> str:
-    '''Respond to the webhook verification (GET request) by echoing back the challenge parameter.'''
+    """Respond to the webhook verification (GET request) by echoing back the challenge parameter."""
 
-    return request.args.get('challenge')
+    return request.args.get("challenge")
 
 
 def check_enqueue_entries(account_id: str):
-    queued_and_running_jobs = (
-        set(queue.job_ids) | set(running_jobs_registry.get_job_ids())
+    queued_and_running_jobs = set(queue.job_ids) | set(
+        running_jobs_registry.get_job_ids()
     )
     log.debug(queued_and_running_jobs)
     token = config.get_dbx_token(get_redis_client(), account_id)
@@ -114,19 +115,15 @@ def check_enqueue_entries(account_id: str):
             metadata,
             config.review_path,
             config.backup_path,
-            config.errors_path
+            config.errors_path,
         )
-        queue.enqueue(
-            task.process_entry,
-            result_ttl=600,
-            job_id=job_id
-        )
+        queue.enqueue(task.process_entry, result_ttl=600, job_id=job_id)
 
 
-@app.route('/kamera', methods=['POST'])
+@app.route("/kamera", methods=["POST"])
 def webhook() -> str:
     log.info("request incoming")
-    signature = request.headers.get('X-Dropbox-Signature')
+    signature = request.headers.get("X-Dropbox-Signature")
     digest = hmac.new(config.APP_SECRET, request.data, sha256).hexdigest()
     if not hmac.compare_digest(signature, digest):
         abort(403)
@@ -152,20 +149,20 @@ def webhook() -> str:
 
 
 def dbx_list_entries(
-    dbx: dropbox.Dropbox,
-    path: Path
-) -> Generator[Tuple[dropbox.files.FileMetadata, Optional[dropbox.files.PhotoMetadata]], None, None]:
-    result = dbx.files_list_folder(
-        path=path.as_posix(),
-        include_media_info=True
-    )
+    dbx: dropbox.Dropbox, path: Path
+) -> Generator[
+    Tuple[dropbox.files.FileMetadata, Optional[dropbox.files.PhotoMetadata]], None, None
+]:
+    result = dbx.files_list_folder(path=path.as_posix(), include_media_info=True)
     while True:
         log.info(f"Entries in upload folder: {len(result.entries)}")
         log.debug(result.entries)
         for entry in result.entries:
             # Ignore deleted files, folders
-            if not (entry.path_lower.endswith(config.media_extensions) and
-                    isinstance(entry, dropbox.files.FileMetadata)):
+            if not (
+                entry.path_lower.endswith(config.media_extensions)
+                and isinstance(entry, dropbox.files.FileMetadata)
+            ):
                 continue
 
             metadata = entry.media_info.get_metadata() if entry.media_info else None
@@ -198,10 +195,10 @@ def main(mode: str) -> None:
                     metadata,
                     config.review_path,
                     config.backup_path,
-                    config.errors_path
+                    config.errors_path,
                 )
                 task.process_entry()
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main(sys.argv[1])

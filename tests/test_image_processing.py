@@ -66,12 +66,12 @@ def assert_image_attrs_identical(output_data: bytes, desired_data: bytes):
 
 
 def run_image_processing_main(
-        filename: str,
-        settings: config.Settings,
-        dimensions: Optional[dropbox.files.Dimensions]=None,
-        coordinates: Optional[dropbox.files.GpsCoordinates]=None,
-        date: Optional[dt.datetime]=None,
-        ) -> bytes:
+    filename: str,
+    settings: config.Settings,
+    dimensions: Optional[dropbox.files.Dimensions] = None,
+    coordinates: Optional[dropbox.files.GpsCoordinates] = None,
+    date: Optional[dt.datetime] = None,
+) -> bytes:
     filepath_input = test_images_path / "input" / filename
     with open(filepath_input, "rb") as file:
         input_data = file.read()
@@ -83,7 +83,7 @@ def run_image_processing_main(
         dimensions=dimensions,
         coordinates=coordinates,
         date=date,
-        )
+    )
     return output_data
 
 
@@ -143,10 +143,7 @@ def test_resize_tag_coordinates(settings) -> None:
     dimensions = dropbox.files.Dimensions(height=3024, width=4032)
     coordinates = dropbox.files.GpsCoordinates(latitude=48.8662694, longitude=2.3242583)
     output = run_image_processing_main(
-        filename,
-        settings,
-        dimensions=dimensions,
-        coordinates=coordinates
+        filename, settings, dimensions=dimensions, coordinates=coordinates
     )
     desired_output = fetch_desired_output(filename)
     assert_image_attrs_identical(output, desired_output)
@@ -165,6 +162,7 @@ def test_add_date(settings) -> None:
 
 
 if face_recognition is not None:
+
     def test_recognition(settings) -> None:
         filename = "recognition.jpg"
         output = run_image_processing_main(filename, settings)
@@ -182,23 +180,17 @@ def settings():
                 "Paris/10e arrondissement": "Holiday/France"
             }
             self.locations = [
-              config.Area(
-                name="Paris",
-                lat=48.8566,
-                lng=2.3522,
-                spots=[
-                  config.Spot(
-                    name="Place de la Concorde",
-                    lat=48.8662,
-                    lng=2.3242
-                  ),
-                  config.Spot(
-                    name="10e arrondissement",
-                    lat=48.8698,
-                    lng=2.3523
-                  )
-                ]
-              )
+                config.Area(
+                    name="Paris",
+                    lat=48.8566,
+                    lng=2.3522,
+                    spots=[
+                        config.Spot(
+                            name="Place de la Concorde", lat=48.8662, lng=2.3242
+                        ),
+                        config.Spot(name="10e arrondissement", lat=48.8698, lng=2.3523),
+                    ],
+                )
             ]
             if face_recognition is None:
                 return
@@ -210,9 +202,7 @@ def settings():
                 obama2 = json.load(j)
             self.recognition_data: Dict[str, List[np_array]] = {
                 "Biden": [np_array(biden)],
-                "Obama": [
-                    np_array(obama1),
-                    np_array(obama2)
-                ]
+                "Obama": [np_array(obama1), np_array(obama2)],
             }
+
     return MockSettings()

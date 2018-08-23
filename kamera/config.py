@@ -12,6 +12,7 @@ import functools
 import yaml
 from dotenv import load_dotenv
 import numpy as np
+
 try:
     import face_recognition
 except ImportError:
@@ -20,14 +21,14 @@ except ImportError:
 from typing import List, Dict
 from dropbox import Dropbox
 
-env_path = Path('.') / '.env'
+env_path = Path(".") / ".env"
 load_dotenv(dotenv_path=env_path)
 
 app_id = os.environ["app_id"]
 
 flask_rate_limit = int(os.environ["flask_rate_limit"])
 
-redis_url = os.environ['REDISTOGO_URL']
+redis_url = os.environ["REDISTOGO_URL"]
 
 APP_SECRET = os.environ["APP_SECRET"].encode()
 
@@ -89,7 +90,7 @@ def _load_location_data(dbx: Dropbox):
             name=location["name"],
             lat=location["lat"],
             lng=location["lng"],
-            spots=[Spot(**spot) for spot in location["spots"]]
+            spots=[Spot(**spot) for spot in location["spots"]],
         )
         for location in location_dict
     ]
@@ -98,10 +99,7 @@ def _load_location_data(dbx: Dropbox):
 
 def _load_recognition_data(dbx: Dropbox):
     recognition_path = config_path / "people"
-    result = dbx.files_list_folder(
-        path=recognition_path.as_posix(),
-        recursive=True
-    )
+    result = dbx.files_list_folder(path=recognition_path.as_posix(), recursive=True)
 
     people: Dict[str, List[np.array]] = defaultdict(list)
 
@@ -115,9 +113,12 @@ def _load_recognition_data(dbx: Dropbox):
     ]
 
     unencoded_imgs = {
-        path for path in paths if (
-            path.suffix in image_extensions and
-            path.with_suffix(".json") not in json_files)
+        path
+        for path in paths
+        if (
+            path.suffix in image_extensions
+            and path.with_suffix(".json") not in json_files
+        )
     }
     img_tasks = [
         loop.create_task(_load_encoding_img(file, dbx, people, loop))
@@ -130,18 +131,14 @@ def _load_recognition_data(dbx: Dropbox):
 
 async def _load_encoding_json(file, dbx, people, loop):
     name = file.parents[0].name
-    _, response = await loop.run_in_executor(
-        None, dbx.files_download, file.as_posix()
-    )
+    _, response = await loop.run_in_executor(None, dbx.files_download, file.as_posix())
     encoding = np.array(json.loads(response.raw.data))
     people[name].append(encoding)
 
 
 async def _load_encoding_img(img, dbx, people, loop):
     name = img.parents[0].name
-    _, response = await loop.run_in_executor(
-        None, dbx.files_download, img.as_posix()
-    )
+    _, response = await loop.run_in_executor(None, dbx.files_download, img.as_posix())
     encoding = _get_facial_encoding(response, img)
     if encoding is None:
         return
@@ -149,12 +146,9 @@ async def _load_encoding_img(img, dbx, people, loop):
     upload_func = functools.partial(
         dbx.files_upload,
         f=json_encoded.encode(),
-        path=img.with_suffix(".json").as_posix()
+        path=img.with_suffix(".json").as_posix(),
     )
-    await loop.run_in_executor(
-        None,
-        upload_func
-    )
+    await loop.run_in_executor(None, upload_func)
     people[name].append(encoding)
 
 

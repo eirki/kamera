@@ -94,7 +94,7 @@ class Task:
                 self.time_taken,
                 self.client_modified,
                 self.coordinates,
-                self.settings.default_tz
+                self.settings.default_tz,
             )
             subfolder = Path(str(date.year), self.settings.folder_names[date.month])
 
@@ -114,7 +114,7 @@ class Task:
                 dbx=self.dbx,
                 redis_client=self.redis_client,
                 account_id=self.account_id,
-                dimensions=self.dimensions
+                dimensions=self.dimensions,
             )
             if duplicate and duplicate_better:
                 log.info(f"{self.name}: Found better duplicate, finishing")
@@ -132,13 +132,20 @@ class Task:
 
             if duplicate and not duplicate_better:
                 log.info(f"{self.name}: Found worse duplicate, deleting")
-                delete_duplicate(duplicate, img_hash, self.dbx, self.redis_client, self.account_id)
+                delete_duplicate(
+                    duplicate, img_hash, self.dbx, self.redis_client, self.account_id
+                )
 
             if new_data is None:
                 copy_entry(self.dbx, self.path, (self.out_dir / subfolder))
             else:
                 upload_entry(self.dbx, self.path, new_data, (self.out_dir / subfolder))
-            store_hash(img_hash, (self.out_dir / subfolder / self.path.name), self.redis_client, self.account_id)
+            store_hash(
+                img_hash,
+                (self.out_dir / subfolder / self.path.name),
+                self.redis_client,
+                self.account_id,
+            )
             move_entry(self.dbx, self.path, (self.backup_dir / subfolder))
         except Exception:
             log.exception(f"Exception occured, moving to Error subfolder: {self.name}")
@@ -161,8 +168,8 @@ def check_for_duplicate(
     dbx: dropbox.Dropbox,
     redis_client: redis.Redis,
     account_id: str,
-    dimensions: dropbox.files.Dimensions
-)-> Tuple[Optional[str], Optional[bool]]:
+    dimensions: dropbox.files.Dimensions,
+) -> Tuple[Optional[str], Optional[bool]]:
     file_path = redis_client.get(f"user:{account_id}, hash:{img_hash}")
     if file_path is None:
         return None, None
@@ -184,23 +191,22 @@ def delete_duplicate(
     img_hash: str,
     dbx: dropbox.Dropbox,
     redis_client: redis.Redis,
-    account_id: str
+    account_id: str,
 ) -> None:
     dbx.files_delete(entry.path_display)
     redis_client.delete(f"user:{account_id}, hash:{img_hash}")
 
 
 def store_hash(
-    img_hash: str,
-    file_path: Path,
-    redis_client: redis.Redis,
-    account_id: str,
+    img_hash: str, file_path: Path, redis_client: redis.Redis, account_id: str
 ) -> None:
     redis_client.set(f"user:{account_id}, hash:{img_hash}", file_path.as_posix())
     redis_client.expire(f"user:{account_id}, hash:{img_hash}", seconds_in_fortnight)
 
 
-def _execute_transfer(dbx: dropbox.Dropbox, transfer_func: Callable, destination_folder: Path):
+def _execute_transfer(
+    dbx: dropbox.Dropbox, transfer_func: Callable, destination_folder: Path
+):
     try:
         transfer_func()
     except requests.exceptions.SSLError:
@@ -212,52 +218,36 @@ def _execute_transfer(dbx: dropbox.Dropbox, transfer_func: Callable, destination
         transfer_func()
 
 
-def move_entry(
-        dbx: dropbox.Dropbox,
-        from_path: Path,
-        to_dir: Path,
-):
+def move_entry(dbx: dropbox.Dropbox, from_path: Path, to_dir: Path):
     name = from_path.name
     transfer_func = partial(
         dbx.files_move,
         from_path=from_path.as_posix(),
         to_path=(to_dir / name).as_posix(),
-        autorename=True
+        autorename=True,
     )
 
     log.info(f"{name}: Moving to dest: {to_dir}")
     _execute_transfer(dbx, transfer_func, to_dir)
 
 
-def copy_entry(
-        dbx: dropbox.Dropbox,
-        from_path: Path,
-        to_dir: Path,
-):
+def copy_entry(dbx: dropbox.Dropbox, from_path: Path, to_dir: Path):
     name = from_path.name
     transfer_func = partial(
         dbx.files_copy,
         from_path=from_path.as_posix(),
         to_path=(to_dir / name).as_posix(),
-        autorename=True
+        autorename=True,
     )
 
     log.info(f"{name}: Copying to dest: {to_dir}")
     _execute_transfer(dbx, transfer_func, to_dir)
 
 
-def upload_entry(
-        dbx: dropbox.Dropbox,
-        from_path: Path,
-        new_data: bytes,
-        to_dir: Path,
-):
+def upload_entry(dbx: dropbox.Dropbox, from_path: Path, new_data: bytes, to_dir: Path):
     name = from_path.with_suffix(".jpg").name
     transfer_func = partial(
-        dbx.files_upload,
-        f=new_data,
-        path=(to_dir / name).as_posix(),
-        autorename=True
+        dbx.files_upload, f=new_data, path=(to_dir / name).as_posix(), autorename=True
     )
 
     log.info(f"{name}: Uploading to dest: {to_dir}")
@@ -276,14 +266,13 @@ def parse_date(
     time_taken: dt.datetime,
     client_modified: dt.datetime,
     coordinates: dropbox.files.GpsCoordinates,
-    default_tz: str
+    default_tz: str,
 ) -> dt.datetime:
     naive_date = time_taken if time_taken is not None else client_modified
     utc_date = naive_date.replace(tzinfo=dt.timezone.utc)
     if coordinates is not None:
         img_tz = TimezoneFinder().timezone_at(
-            lat=coordinates.latitude,
-            lng=coordinates.longitude
+            lat=coordinates.latitude, lng=coordinates.longitude
         )
         if img_tz:
             local_date = utc_date.astimezone(tz=pytz.timezone(img_tz))

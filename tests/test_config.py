@@ -27,9 +27,7 @@ def test_settings_recognition_tolerance(settings):
 
 
 def test_settings_tag_swaps(settings):
-    assert settings.tag_swaps == {
-        "Paris/10e arrondissement": "Holiday/France"
-    }
+    assert settings.tag_swaps == {"Paris/10e arrondissement": "Holiday/France"}
 
 
 def test_settings_folder_names(settings):
@@ -45,8 +43,8 @@ def test_settings_folder_names(settings):
         9: "September",
         10: "October",
         11: "November",
-        12: "December"
-      }
+        12: "December",
+    }
 
 
 def test_settings_locations(settings):
@@ -66,6 +64,7 @@ def test_settings_locations(settings):
 
 
 if face_recognition is not None:
+
     def test_settings_recognition(settings):
         assert len(settings.recognition_data) == 2
         assert len(settings.recognition_data["Biden"]) == 1
@@ -93,19 +92,17 @@ class MockDropbox:
     def files_list_folder(
         self,
         path: str,
-        recursive: Optional[bool]=False,
-        include_media_info: Optional[bool]=False
+        recursive: Optional[bool] = False,
+        include_media_info: Optional[bool] = False,
     ):
         path_obj = Path(path)
         files = path_obj.rglob("*") if recursive else path_obj.iterdir()
         mock_entries = [
-            dropbox.files.FileMetadata(
-                path_display=file.as_posix(),
-            )
-            for file in files]
+            dropbox.files.FileMetadata(path_display=file.as_posix()) for file in files
+        ]
         mock_result = SimpleNamespace(entries=mock_entries, has_more=False)
         return mock_result
 
-    def files_upload(self, f: bytes, path: str, autorename: Optional[bool]=False):
+    def files_upload(self, f: bytes, path: str, autorename: Optional[bool] = False):
         with open(path, "wb") as file:
             file.write(f)

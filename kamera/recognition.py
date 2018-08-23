@@ -7,6 +7,7 @@ from collections import namedtuple
 from copy import deepcopy
 
 from numpy import array as np_array
+
 try:
     import face_recognition
 except ImportError:
@@ -22,10 +23,10 @@ Match = namedtuple("Match", ["distance", "name"])
 
 
 def _match_face_with_known_people(
-        known_people: Dict[str, List[np_array]],
-        unknown_encoding: np_array,
-        tolerance: float
-        ) -> List[Match]:
+    known_people: Dict[str, List[np_array]],
+    unknown_encoding: np_array,
+    tolerance: float,
+) -> List[Match]:
     """
     Returns possible matches for a single unknown face encoding
 
@@ -72,10 +73,7 @@ def _get_best_match_for_each_face(all_facial_matches: List[List[Match]]) -> List
     return recognized_people
 
 
-def recognize_face(
-    img_data: bytes,
-    settings: config.Settings
-) -> List[str]:
+def recognize_face(img_data: bytes, settings: config.Settings) -> List[str]:
     loaded_img = face_recognition.load_image_file(BytesIO(img_data))
     unknown_encodings = face_recognition.face_encodings(loaded_img)
 
@@ -84,9 +82,7 @@ def recognize_face(
     all_facial_matches = []
     for unknown_encoding in unknown_encodings:
         match_list = _match_face_with_known_people(
-            known_people,
-            unknown_encoding,
-            settings.recognition_tolerance
+            known_people, unknown_encoding, settings.recognition_tolerance
         )
         if match_list:
             all_facial_matches.append(match_list)
@@ -94,9 +90,6 @@ def recognize_face(
     if any(len(n_matches) > 1 for n_matches in all_facial_matches):
         recognized_people = _get_best_match_for_each_face(all_facial_matches)
     else:
-        recognized_people = [
-            match_list[0].name
-            for match_list in all_facial_matches
-        ]
+        recognized_people = [match_list[0].name for match_list in all_facial_matches]
 
     return recognized_people
