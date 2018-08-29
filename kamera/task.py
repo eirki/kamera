@@ -18,10 +18,14 @@ import imagehash
 from kamera import config
 from kamera import image_processing
 
-from typing import Callable, Optional, Dict, Tuple
+from typing import Callable, Optional, Dict
 
 
 seconds_in_fortnight = int(dt.timedelta(weeks=1).total_seconds())
+
+
+class FoundBetterDuplicateException(Exception):
+    pass
 
 
 class Task:
@@ -109,17 +113,13 @@ class Task:
             _, response = download_entry(self.dbx, self.path.as_posix())
             in_data = response.raw.data
             img_hash = get_hash(data=in_data)
-            duplicate, duplicate_better = check_for_duplicate(
+            handle_duplication(
                 img_hash=img_hash,
                 dbx=self.dbx,
                 redis_client=self.redis_client,
                 account_id=self.account_id,
                 dimensions=self.dimensions,
             )
-            if duplicate and duplicate_better:
-                log.info(f"{self.name}: Found better duplicate, finishing")
-                move_entry(self.dbx, self.path, (self.backup_dir / subfolder))
-                return
 
             new_data = image_processing.main(
                 data=in_data,
@@ -130,22 +130,19 @@ class Task:
                 dimensions=self.dimensions,
             )
 
-            if duplicate and not duplicate_better:
-                log.info(f"{self.name}: Found worse duplicate, deleting")
-                delete_duplicate(
-                    duplicate, img_hash, self.dbx, self.redis_client, self.account_id
-                )
-
             if new_data is None:
                 copy_entry(self.dbx, self.path, (self.out_dir / subfolder))
             else:
                 upload_entry(self.dbx, self.path, new_data, (self.out_dir / subfolder))
             store_hash(
-                img_hash,
-                (self.out_dir / subfolder / self.path.name),
-                self.redis_client,
-                self.account_id,
+                img_hash=img_hash,
+                file_path=(self.out_dir / subfolder / self.path.name),
+                redis_client=self.redis_client,
+                account_id=self.account_id,
             )
+            move_entry(self.dbx, self.path, (self.backup_dir / subfolder))
+        except FoundBetterDuplicateException:
+            log.info(f"{self.name}: Found better duplicate, finishing")
             move_entry(self.dbx, self.path, (self.backup_dir / subfolder))
         except Exception:
             log.exception(f"Exception occured, moving to Error subfolder: {self.name}")
@@ -163,27 +160,30 @@ def get_hash(data: bytes) -> str:
     return img_hash
 
 
-def check_for_duplicate(
+def handle_duplication(
     img_hash: str,
     dbx: dropbox.Dropbox,
     redis_client: redis.Redis,
     account_id: str,
     dimensions: dropbox.files.Dimensions,
-) -> Tuple[Optional[str], Optional[bool]]:
+) -> None:
     file_path = redis_client.get(f"user:{account_id}, hash:{img_hash}")
     if file_path is None:
-        return None, None
+        return
     file_path = file_path.decode()
 
     try:
         dup_entry = dbx.files_get_metadata(file_path, include_media_info=True)
     except dropbox.exceptions.ApiError:
-        return None, None
+        return
     dup_metadata = dup_entry.media_info.get_metadata() if dup_entry.media_info else None
-
-    size = dimensions.height * dimensions.width
-    size_dup = dup_metadata.dimensions.height * dup_metadata.dimensions.width
-    return dup_entry, (size_dup >= size)
+    duplicate_better = (
+        dup_metadata.dimensions.height * dup_metadata.dimensions.width
+    ) > (dimensions.height * dimensions.width)
+    if duplicate_better:
+        raise FoundBetterDuplicateException
+    else:
+        delete_duplicate(dup_entry, img_hash, dbx, redis_client, account_id)
 
 
 def delete_duplicate(
