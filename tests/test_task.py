@@ -298,7 +298,8 @@ def test_settings_caching(monkeypatch, tmpdir, settings) -> None:
     assert account_id not in Task.dbx_cache
     assert account_id not in Task.settings_cache
 
-    dbx1, settings1 = task1.load_from_cache(task1.account_id)
+    dbx1 = Task.load_dbx_from_cache(task1.account_id)
+    settings1 = task1.load_settings_from_cache(task1.account_id, dbx1)
 
     assert account_id in Task.dbx_cache
     assert account_id in Task.settings_cache
@@ -315,7 +316,8 @@ def test_settings_caching(monkeypatch, tmpdir, settings) -> None:
         backup_dir=root_dir / "Backup",
         error_dir=root_dir / "Error",
     )
-    dbx2, settings2 = task2.load_from_cache(task2.account_id)
+    dbx2 = Task.load_dbx_from_cache(task2.account_id)
+    settings2 = task2.load_settings_from_cache(task2.account_id, dbx2)
     assert id(dbx1) == id(dbx2)
     assert id(settings1) == id(settings2)
 

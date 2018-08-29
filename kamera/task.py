@@ -30,7 +30,7 @@ class FoundBetterDuplicateException(Exception):
 
 class Task:
     dbx_cache: Dict[str, dropbox.Dropbox] = {}
-    settings_cache: Dict[str, Dict] = {}
+    settings_cache: Dict[str, config.Settings] = {}
     redis_client: redis.Redis = None
 
     def __init__(
@@ -60,24 +60,28 @@ class Task:
         self.backup_dir: Path = backup_dir
         self.error_dir: Path = error_dir
 
-        self.dbx: Optional[dropbox.Dropbox] = None
-        self.settings: Optional[config.Settings] = None
-
     def __repr__(self):
         return repr(self.name)
 
     @classmethod
-    def load_from_cache(cls, account_id):
+    def load_redis_client_from_cache(cls, account_id: str) -> None:
         log.debug(cls.dbx_cache)
         log.debug(cls.settings_cache)
         if cls.redis_client is None:
             cls.redis_client = redis.from_url(config.redis_url)
 
+    @classmethod
+    def load_dbx_from_cache(cls, account_id: str) -> dropbox.Dropbox:
         try:
             dbx = cls.dbx_cache[account_id]
         except KeyError:
             dbx = dropbox.Dropbox(config.get_dbx_token(cls.redis_client, account_id))
             cls.dbx_cache[account_id] = dbx
+        log.debug(cls.dbx_cache)
+        return dbx
+
+    @classmethod
+    def load_settings_from_cache(cls, account_id: str, dbx: dropbox.Dropbox) -> config.Settings:
         try:
             settings = cls.settings_cache[account_id]
             log.debug("Settings loaded from cache")
@@ -85,37 +89,38 @@ class Task:
             settings = config.Settings(dbx)
             cls.settings_cache[account_id] = settings
             log.debug("Settings loaded from dbx")
-        log.debug(cls.dbx_cache)
         log.debug(cls.settings_cache)
-        return dbx, settings
+        return settings
 
-    def process_entry(self):
+    def process_entry(self) -> None:
         start_time = dt.datetime.now()
         log.info(f"{self.name}: Processing")
-        self.dbx, self.settings = self.load_from_cache(self.account_id)
+        Task.load_redis_client_from_cache(self.account_id)
+        dbx = Task.load_dbx_from_cache(self.account_id)
+        settings = Task.load_settings_from_cache(self.account_id, dbx)
         try:
             date = parse_date(
                 self.time_taken,
                 self.client_modified,
                 self.coordinates,
-                self.settings.default_tz,
+                settings.default_tz,
             )
-            subfolder = Path(str(date.year), self.settings.folder_names[date.month])
+            subfolder = Path(str(date.year), settings.folder_names[date.month])
 
             if self.path.suffix.lower() in config.video_extensions:
-                copy_entry(self.dbx, self.path, (self.out_dir / subfolder))
-                move_entry(self.dbx, self.path, (self.backup_dir / subfolder))
+                copy_entry(dbx, self.path, (self.out_dir / subfolder))
+                move_entry(dbx, self.path, (self.backup_dir / subfolder))
                 return
 
             elif self.path.suffix.lower() not in config.image_extensions:
                 return
 
-            _, response = download_entry(self.dbx, self.path.as_posix())
+            _, response = download_entry(dbx, self.path.as_posix())
             in_data = response.raw.data
             img_hash = get_hash(data=in_data)
             handle_duplication(
                 img_hash=img_hash,
-                dbx=self.dbx,
+                dbx=dbx,
                 redis_client=self.redis_client,
                 account_id=self.account_id,
                 dimensions=self.dimensions,
@@ -125,28 +130,28 @@ class Task:
                 data=in_data,
                 filepath=self.path,
                 date=date,
-                settings=self.settings,
+                settings=settings,
                 coordinates=self.coordinates,
                 dimensions=self.dimensions,
             )
 
             if new_data is None:
-                copy_entry(self.dbx, self.path, (self.out_dir / subfolder))
+                copy_entry(dbx, self.path, (self.out_dir / subfolder))
             else:
-                upload_entry(self.dbx, self.path, new_data, (self.out_dir / subfolder))
+                upload_entry(dbx, self.path, new_data, (self.out_dir / subfolder))
             store_hash(
                 img_hash=img_hash,
                 file_path=(self.out_dir / subfolder / self.path.name),
                 redis_client=self.redis_client,
                 account_id=self.account_id,
             )
-            move_entry(self.dbx, self.path, (self.backup_dir / subfolder))
+            move_entry(dbx, self.path, (self.backup_dir / subfolder))
         except FoundBetterDuplicateException:
             log.info(f"{self.name}: Found better duplicate, finishing")
-            move_entry(self.dbx, self.path, (self.backup_dir / subfolder))
+            move_entry(dbx, self.path, (self.backup_dir / subfolder))
         except Exception:
             log.exception(f"Exception occured, moving to Error subfolder: {self.name}")
-            move_entry(self.dbx, self.path, self.error_dir)
+            move_entry(dbx, self.path, self.error_dir)
         finally:
             end_time = dt.datetime.now()
             duration = end_time - start_time
@@ -263,9 +268,9 @@ def download_entry(dbx, path_str: str):
 
 
 def parse_date(
-    time_taken: dt.datetime,
+    time_taken: Optional[dt.datetime],
     client_modified: dt.datetime,
-    coordinates: dropbox.files.GpsCoordinates,
+    coordinates: Optional[dropbox.files.GpsCoordinates],
     default_tz: str,
 ) -> dt.datetime:
     naive_date = time_taken if time_taken is not None else client_modified
