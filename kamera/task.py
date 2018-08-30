@@ -38,7 +38,7 @@ class Task:
         account_id: str,
         entry: dropbox.files.FileMetadata,
         metadata: Optional[dropbox.files.PhotoMetadata],
-        out_dir: Path,
+        review_dir: Path,
         backup_dir: Path,
         error_dir: Path,
     ) -> None:
@@ -56,7 +56,7 @@ class Task:
             if metadata.location is not None:
                 self.coordinates = metadata.location
 
-        self.out_dir: Path = out_dir
+        self.review_dir: Path = review_dir
         self.backup_dir: Path = backup_dir
         self.error_dir: Path = error_dir
 
@@ -81,7 +81,9 @@ class Task:
         return dbx
 
     @classmethod
-    def load_settings_from_cache(cls, account_id: str, dbx: dropbox.Dropbox) -> config.Settings:
+    def load_settings_from_cache(
+        cls, account_id: str, dbx: dropbox.Dropbox
+    ) -> config.Settings:
         try:
             settings = cls.settings_cache[account_id]
             log.debug("Settings loaded from cache")
@@ -106,10 +108,17 @@ class Task:
                 settings.default_tz,
             )
             subfolder = Path(str(date.year), settings.folder_names[date.month])
+            out_name = (
+                self.name
+                if self.path.suffix != ".png"
+                else self.path.with_suffix(".jpg").name
+            )
+            review_path = self.review_dir / subfolder / out_name
+            backup_path = self.backup_dir / subfolder / out_name
 
             if self.path.suffix.lower() in config.video_extensions:
-                copy_entry(dbx, self.path, (self.out_dir / subfolder))
-                move_entry(dbx, self.path, (self.backup_dir / subfolder))
+                copy_entry(dbx, self.path, review_path)
+                move_entry(dbx, self.path, backup_path)
                 return
 
             elif self.path.suffix.lower() not in config.image_extensions:
@@ -119,10 +128,10 @@ class Task:
             in_data = response.raw.data
             img_hash = get_hash(data=in_data)
             handle_duplication(
-                img_hash=img_hash,
+                account_id_and_hash=f"user:{self.account_id}, hash:{img_hash}",
+                file_path=review_path,
                 dbx=dbx,
                 redis_client=self.redis_client,
-                account_id=self.account_id,
                 dimensions=self.dimensions,
             )
 
@@ -136,22 +145,17 @@ class Task:
             )
 
             if new_data is None:
-                copy_entry(dbx, self.path, (self.out_dir / subfolder))
+                copy_entry(dbx, self.path, review_path)
             else:
-                upload_entry(dbx, self.path, new_data, (self.out_dir / subfolder))
-            store_hash(
-                img_hash=img_hash,
-                file_path=(self.out_dir / subfolder / self.path.name),
-                redis_client=self.redis_client,
-                account_id=self.account_id,
-            )
-            move_entry(dbx, self.path, (self.backup_dir / subfolder))
+                upload_entry(dbx, new_data, review_path)
+
+            move_entry(dbx, self.path, backup_path)
         except FoundBetterDuplicateException:
             log.info(f"{self.name}: Found better duplicate, finishing")
-            move_entry(dbx, self.path, (self.backup_dir / subfolder))
+            move_entry(dbx, self.path, backup_path)
         except Exception:
             log.exception(f"Exception occured, moving to Error subfolder: {self.name}")
-            move_entry(dbx, self.path, self.error_dir)
+            move_entry(dbx, self.path, (self.error_dir / self.name))
         finally:
             end_time = dt.datetime.now()
             duration = end_time - start_time
@@ -159,27 +163,23 @@ class Task:
             log.info("\n")
 
 
-def get_hash(data: bytes) -> str:
-    img = Image.open(BytesIO(data))
-    img_hash = imagehash.whash(img)
-    return img_hash
-
-
 def handle_duplication(
-    img_hash: str,
+    account_id_and_hash: str,
+    file_path: Path,
     dbx: dropbox.Dropbox,
     redis_client: redis.Redis,
-    account_id: str,
     dimensions: dropbox.files.Dimensions,
 ) -> None:
-    file_path = redis_client.get(f"user:{account_id}, hash:{img_hash}")
-    if file_path is None:
+    dup_file_path = redis_client.get(account_id_and_hash)  # need to check for duplicate before storing the hash
+    store_hash(account_id_and_hash, file_path, redis_client)
+    if dup_file_path is None:
         return
-    file_path = file_path.decode()
+    dup_file_path = dup_file_path.decode()
 
     try:
-        dup_entry = dbx.files_get_metadata(file_path, include_media_info=True)
+        dup_entry = dbx.files_get_metadata(dup_file_path, include_media_info=True)
     except dropbox.exceptions.ApiError:
+        delete_hash(account_id_and_hash, redis_client)
         return
     dup_metadata = dup_entry.media_info.get_metadata() if dup_entry.media_info else None
     duplicate_better = (
@@ -188,30 +188,34 @@ def handle_duplication(
     if duplicate_better:
         raise FoundBetterDuplicateException
     else:
-        delete_duplicate(dup_entry, img_hash, dbx, redis_client, account_id)
+        delete_entry(dup_entry, dbx)
+        delete_hash(account_id_and_hash, redis_client)
 
 
-def delete_duplicate(
-    entry: dropbox.files.FileMetadata,
-    img_hash: str,
-    dbx: dropbox.Dropbox,
-    redis_client: redis.Redis,
-    account_id: str,
-) -> None:
-    dbx.files_delete(entry.path_display)
-    redis_client.delete(f"user:{account_id}, hash:{img_hash}")
+def get_hash(data: bytes) -> str:
+    img = Image.open(BytesIO(data))
+    img_hash = imagehash.whash(img)
+    return img_hash
 
 
 def store_hash(
-    img_hash: str, file_path: Path, redis_client: redis.Redis, account_id: str
+    account_id_and_hash: str, file_path: Path, redis_client: redis.Redis
 ) -> None:
-    redis_client.set(f"user:{account_id}, hash:{img_hash}", file_path.as_posix())
-    redis_client.expire(f"user:{account_id}, hash:{img_hash}", seconds_in_fortnight)
+    redis_client.set(account_id_and_hash, file_path.as_posix())
+    redis_client.expire(account_id_and_hash, seconds_in_fortnight)
+
+
+def delete_hash(account_id_and_hash: str, redis_client: redis.Redis) -> None:
+    redis_client.delete(account_id_and_hash)
+
+
+def delete_entry(entry: dropbox.files.FileMetadata, dbx: dropbox.Dropbox) -> None:
+    dbx.files_delete(entry.path_display)
 
 
 def _execute_transfer(
     dbx: dropbox.Dropbox, transfer_func: Callable, destination_folder: Path
-):
+) -> None:
     try:
         transfer_func()
     except requests.exceptions.SSLError:
@@ -223,40 +227,34 @@ def _execute_transfer(
         transfer_func()
 
 
-def move_entry(dbx: dropbox.Dropbox, from_path: Path, to_dir: Path):
-    name = from_path.name
+def move_entry(dbx: dropbox.Dropbox, from_path: Path, to_path: Path) -> None:
     transfer_func = partial(
         dbx.files_move,
         from_path=from_path.as_posix(),
-        to_path=(to_dir / name).as_posix(),
+        to_path=to_path.as_posix(),
         autorename=True,
     )
+    log.info(f"{from_path.name}: Moving to dest: {to_path.as_posix()}")
+    _execute_transfer(dbx, transfer_func, to_path.parent)
 
-    log.info(f"{name}: Moving to dest: {to_dir}")
-    _execute_transfer(dbx, transfer_func, to_dir)
 
-
-def copy_entry(dbx: dropbox.Dropbox, from_path: Path, to_dir: Path):
-    name = from_path.name
+def copy_entry(dbx: dropbox.Dropbox, from_path: Path, to_path: Path) -> None:
     transfer_func = partial(
         dbx.files_copy,
         from_path=from_path.as_posix(),
-        to_path=(to_dir / name).as_posix(),
+        to_path=to_path.as_posix(),
         autorename=True,
     )
+    log.info(f"{from_path.name}: Copying to dest: {to_path.as_posix()}")
+    _execute_transfer(dbx, transfer_func, to_path.parent)
 
-    log.info(f"{name}: Copying to dest: {to_dir}")
-    _execute_transfer(dbx, transfer_func, to_dir)
 
-
-def upload_entry(dbx: dropbox.Dropbox, from_path: Path, new_data: bytes, to_dir: Path):
-    name = from_path.with_suffix(".jpg").name
+def upload_entry(dbx: dropbox.Dropbox, new_data: bytes, to_path: Path) -> None:
     transfer_func = partial(
-        dbx.files_upload, f=new_data, path=(to_dir / name).as_posix(), autorename=True
+        dbx.files_upload, f=new_data, path=to_path.as_posix(), autorename=True
     )
-
-    log.info(f"{name}: Uploading to dest: {to_dir}")
-    _execute_transfer(dbx, transfer_func, to_dir)
+    log.info(f"{to_path.name}: Uploading to dest: {to_path.as_posix()}")
+    _execute_transfer(dbx, transfer_func, to_path.parent)
 
 
 def download_entry(dbx, path_str: str):

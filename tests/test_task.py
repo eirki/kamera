@@ -69,7 +69,7 @@ def run_task_process_entry(
         account_id=account_id,
         entry=dbx_entry,
         metadata=metadata,
-        out_dir=root_dir / "Review",
+        review_dir=root_dir / "Review",
         backup_dir=root_dir / "Backup",
         error_dir=root_dir / "Error",
     )
@@ -290,7 +290,7 @@ def test_settings_caching(monkeypatch, tmpdir, settings) -> None:
         account_id=account_id,
         entry=dbx_entry1,
         metadata=None,
-        out_dir=root_dir / "Review",
+        review_dir=root_dir / "Review",
         backup_dir=root_dir / "Backup",
         error_dir=root_dir / "Error",
     )
@@ -312,7 +312,7 @@ def test_settings_caching(monkeypatch, tmpdir, settings) -> None:
         account_id=account_id,
         entry=dbx_entry2,
         metadata=None,
-        out_dir=root_dir / "Review",
+        review_dir=root_dir / "Review",
         backup_dir=root_dir / "Backup",
         error_dir=root_dir / "Error",
     )
