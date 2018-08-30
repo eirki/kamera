@@ -322,16 +322,17 @@ def test_settings_caching(monkeypatch, tmpdir, settings) -> None:
     assert id(settings1) == id(settings2)
 
 
+@pytest.mark.parametrize("extension", config.image_extensions)
 @pytest.mark.usefixtures("no_img_processing")
-def test_duplicate_worse(tmpdir) -> None:
+def test_duplicate_worse(tmpdir, extension) -> None:
     root_dir = Path(tmpdir)
     make_all_temp_folders(root_dir)
     metadata = dropbox.files.PhotoMetadata(
         dimensions=dropbox.files.Dimensions(100, 100)
     )
     run_task_process_entry(
-        test_name="test_duplicate_worse",
-        ext=".jpg",
+        test_name="test_duplicate_worse" + extension,
+        ext=extension,
         root_dir=root_dir,
         file_name="worse",
         metadata=metadata,
@@ -340,8 +341,8 @@ def test_duplicate_worse(tmpdir) -> None:
         dimensions=dropbox.files.Dimensions(150, 150)
     )
     run_task_process_entry(
-        test_name="test_duplicate_worse",
-        ext=".jpg",
+        test_name="test_duplicate_worse" + extension,
+        ext=extension,
         root_dir=root_dir,
         file_name="better",
         metadata=metadata,
@@ -353,22 +354,23 @@ def test_duplicate_worse(tmpdir) -> None:
     assert uploads_contents == []
     assert len(review_contents) == 3
     assert len(backup_contents) == 4
-    assert len(list((root_dir / "Review").rglob("*worse.jpg"))) == 0
-    assert len(list((root_dir / "Review").rglob("*better.jpg"))) == 1
-    assert len(list((root_dir / "Backup").rglob("*worse.jpg"))) == 1
-    assert len(list((root_dir / "Backup").rglob("*better.jpg"))) == 1
+    assert len(list((root_dir / "Review").rglob("*worse*"))) == 0
+    assert len(list((root_dir / "Review").rglob("*better*"))) == 1
+    assert len(list((root_dir / "Backup").rglob("*worse*"))) == 1
+    assert len(list((root_dir / "Backup").rglob("*better*"))) == 1
 
 
+@pytest.mark.parametrize("extension", config.image_extensions)
 @pytest.mark.usefixtures("no_img_processing")
-def test_duplicate_better(tmpdir) -> None:
+def test_duplicate_better(tmpdir, extension) -> None:
     root_dir = Path(tmpdir)
     make_all_temp_folders(root_dir)
     metadata = dropbox.files.PhotoMetadata(
         dimensions=dropbox.files.Dimensions(150, 150)
     )
     run_task_process_entry(
-        test_name="test_duplicate_better",
-        ext=".jpg",
+        test_name="test_duplicate_better" + extension,
+        ext=extension,
         root_dir=root_dir,
         file_name="better",
         metadata=metadata,
@@ -377,8 +379,8 @@ def test_duplicate_better(tmpdir) -> None:
         dimensions=dropbox.files.Dimensions(100, 100)
     )
     run_task_process_entry(
-        test_name="test_duplicate_better",
-        ext=".jpg",
+        test_name="test_duplicate_better" + extension,
+        ext=extension,
         root_dir=root_dir,
         file_name="worse",
         metadata=metadata,
@@ -390,10 +392,10 @@ def test_duplicate_better(tmpdir) -> None:
     assert uploads_contents == []
     assert len(review_contents) == 3
     assert len(backup_contents) == 4
-    assert len(list((root_dir / "Review").rglob("*worse.jpg"))) == 0
-    assert len(list((root_dir / "Review").rglob("*better.jpg"))) == 1
-    assert len(list((root_dir / "Backup").rglob("*worse.jpg"))) == 1
-    assert len(list((root_dir / "Backup").rglob("*better.jpg"))) == 1
+    assert len(list((root_dir / "Review").rglob("*worse*"))) == 0
+    assert len(list((root_dir / "Review").rglob("*better*"))) == 1
+    assert len(list((root_dir / "Backup").rglob("*worse*"))) == 1
+    assert len(list((root_dir / "Backup").rglob("*better*"))) == 1
 
 
 @pytest.fixture()
@@ -456,7 +458,7 @@ class MockDropbox:
     ) -> None:
         if not Path(from_path).parent.exists() or not Path(to_path).parent.exists():
             raise dropbox.exceptions.BadInputError(request_id=1, message="message")
-        shutil.copy(from_path, Path(to_path).parent)
+        shutil.copy(from_path, to_path)
 
     def files_create_folder(self, path, autorename=False) -> None:
         os.makedirs(path)
