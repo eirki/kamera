@@ -170,7 +170,8 @@ def handle_duplication(
     redis_client: redis.Redis,
     dimensions: dropbox.files.Dimensions,
 ) -> None:
-    dup_file_path = redis_client.get(account_id_and_hash)  # need to check for duplicate before storing the hash
+    dup_file_path = redis_client.get(account_id_and_hash)
+    # need to check for duplicate before storing the hash
     store_hash(account_id_and_hash, file_path, redis_client)
     if dup_file_path is None:
         return
