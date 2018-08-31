@@ -64,7 +64,7 @@ class Task:
         return repr(self.name)
 
     @classmethod
-    def load_redis_client_from_cache(cls, account_id: str) -> None:
+    def connect_redis(cls, account_id: str) -> None:
         log.debug(cls.dbx_cache)
         log.debug(cls.settings_cache)
         if cls.redis_client is None:
@@ -97,7 +97,7 @@ class Task:
     def process_entry(self) -> None:
         start_time = dt.datetime.now()
         log.info(f"{self.name}: Processing")
-        Task.load_redis_client_from_cache(self.account_id)
+        Task.connect_redis(self.account_id)
         dbx = Task.load_dbx_from_cache(self.account_id)
         settings = Task.load_settings_from_cache(self.account_id, dbx)
         try:
@@ -128,7 +128,7 @@ class Task:
             in_data = response.raw.data
             img_hash = get_hash(data=in_data)
             handle_duplication(
-                account_id_and_hash=f"user:{self.account_id}, hash:{img_hash}",
+                account_id_and_img_hash=f"user:{self.account_id}, hash:{img_hash}",
                 file_path=review_path,
                 dbx=dbx,
                 redis_client=self.redis_client,
@@ -164,15 +164,15 @@ class Task:
 
 
 def handle_duplication(
-    account_id_and_hash: str,
+    account_id_and_img_hash: str,
     file_path: Path,
     dbx: dropbox.Dropbox,
     redis_client: redis.Redis,
     dimensions: dropbox.files.Dimensions,
 ) -> None:
-    dup_file_path = redis_client.get(account_id_and_hash)
+    dup_file_path = redis_client.get(account_id_and_img_hash)
     # need to check for duplicate before storing the hash
-    store_hash(account_id_and_hash, file_path, redis_client)
+    store_hash(account_id_and_img_hash, file_path, redis_client)
     if dup_file_path is None:
         return
     dup_file_path = dup_file_path.decode()
@@ -180,7 +180,7 @@ def handle_duplication(
     try:
         dup_entry = dbx.files_get_metadata(dup_file_path, include_media_info=True)
     except dropbox.exceptions.ApiError:
-        delete_hash(account_id_and_hash, redis_client)
+        delete_hash(account_id_and_img_hash, redis_client)
         return
     dup_metadata = dup_entry.media_info.get_metadata() if dup_entry.media_info else None
     duplicate_better = (
@@ -190,7 +190,7 @@ def handle_duplication(
         raise FoundBetterDuplicateException
     else:
         delete_entry(dup_entry, dbx)
-        delete_hash(account_id_and_hash, redis_client)
+        delete_hash(account_id_and_img_hash, redis_client)
 
 
 def get_hash(data: bytes) -> str:
@@ -200,14 +200,14 @@ def get_hash(data: bytes) -> str:
 
 
 def store_hash(
-    account_id_and_hash: str, file_path: Path, redis_client: redis.Redis
+    account_id_and_img_hash: str, file_path: Path, redis_client: redis.Redis
 ) -> None:
-    redis_client.set(account_id_and_hash, file_path.as_posix())
-    redis_client.expire(account_id_and_hash, seconds_in_fortnight)
+    redis_client.set(account_id_and_img_hash, file_path.as_posix())
+    redis_client.expire(account_id_and_img_hash, seconds_in_fortnight)
 
 
-def delete_hash(account_id_and_hash: str, redis_client: redis.Redis) -> None:
-    redis_client.delete(account_id_and_hash)
+def delete_hash(account_id_and_img_hash: str, redis_client: redis.Redis) -> None:
+    redis_client.delete(account_id_and_img_hash)
 
 
 def delete_entry(entry: dropbox.files.FileMetadata, dbx: dropbox.Dropbox) -> None:
