@@ -136,7 +136,9 @@ def test_video(tmpdir, extension, monkeypatch, process_img) -> None:
     make_all_temp_folders(root_dir)
     monkeypatch_img_processing(monkeypatch, return_new_data=process_img)
     run_task_process_entry(
-        test_name=f"test_video{extension}{process_img}", ext=extension, root_dir=root_dir
+        test_name=f"test_video{extension}{process_img}",
+        ext=extension,
+        root_dir=root_dir,
     )
     assert_file_moved_to_review_and_backup(root_dir)
     assert_contents_unchanged(root_dir, "Review")
@@ -177,7 +179,9 @@ def test_error(tmpdir, extension, monkeypatch, process_img) -> None:
     make_all_temp_folders(root_dir)
     monkeypatch_img_processing(monkeypatch, return_new_data=process_img)
     run_task_process_entry(
-        test_name=f"test_error{extension}{process_img}", ext=extension, root_dir=root_dir
+        test_name=f"test_error{extension}{process_img}",
+        ext=extension,
+        root_dir=root_dir,
     )
     assert_file_moved_to_error(root_dir)
     assert_contents_unchanged(root_dir, "Error")
@@ -315,9 +319,7 @@ def test_date_moved_to_filename_start(
     assert out_file.stem == f"{date_str}_{prefix}"
 
 
-def test_settings_caching(
-    tmpdir, settings, monkeypatch
-) -> None:
+def test_settings_caching(tmpdir, settings, monkeypatch) -> None:
     monkeypatch.setattr("kamera.task.config.Settings", MockSettings)
     account_id = "test_settings_caching"
     fake_redis_client = fakeredis.FakeStrictRedis()
@@ -365,9 +367,7 @@ def test_settings_caching(
 
 @pytest.mark.parametrize("extension", config.image_extensions)
 @pytest.mark.parametrize("process_img", [True, False])
-def test_duplicate_worse(
-    tmpdir, extension, monkeypatch, process_img
-) -> None:
+def test_duplicate_worse(tmpdir, extension, monkeypatch, process_img) -> None:
     root_dir = Path(tmpdir)
     make_all_temp_folders(root_dir)
     monkeypatch_img_processing(monkeypatch, return_new_data=process_img)
@@ -406,9 +406,7 @@ def test_duplicate_worse(
 
 @pytest.mark.parametrize("extension", config.image_extensions)
 @pytest.mark.parametrize("process_img", [True, False])
-def test_duplicate_better(
-    tmpdir, extension, monkeypatch, process_img
-) -> None:
+def test_duplicate_better(tmpdir, extension, monkeypatch, process_img) -> None:
     root_dir = Path(tmpdir)
     make_all_temp_folders(root_dir)
     monkeypatch_img_processing(monkeypatch, return_new_data=process_img)
@@ -455,9 +453,7 @@ def monkeypatch_img_processing(monkeypatch, return_new_data: bool) -> None:
         return new_data
 
     if return_new_data is True:
-        monkeypatch.setattr(
-            "kamera.task.image_processing.main", process_img_mock
-        )
+        monkeypatch.setattr("kamera.task.image_processing.main", process_img_mock)
     else:
         monkeypatch.setattr("kamera.task.image_processing.main", no_img_processing_mock)
 
