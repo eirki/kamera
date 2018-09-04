@@ -6,6 +6,7 @@ from pathlib import Path
 import datetime as dt
 from functools import partial
 from io import BytesIO
+import re
 
 import pytz
 from timezonefinderL import TimezoneFinder
@@ -107,12 +108,8 @@ class Task:
                 self.coordinates,
                 settings.default_tz,
             )
+            out_name = get_out_name(self.path.stem, self.path.suffix, date)
             subfolder = Path(str(date.year), settings.folder_names[date.month])
-            out_name = (
-                self.name
-                if self.path.suffix != ".png"
-                else self.path.with_suffix(".jpg").name
-            )
             review_path = self.review_dir / subfolder / out_name
             backup_path = self.backup_dir / subfolder / out_name
 
@@ -183,9 +180,14 @@ def handle_duplication(
         delete_hash(account_id_and_img_hash, redis_client)
         return
     dup_metadata = dup_entry.media_info.get_metadata() if dup_entry.media_info else None
-    duplicate_better = (
-        dup_metadata.dimensions.height * dup_metadata.dimensions.width
-    ) > (dimensions.height * dimensions.width)
+    try:
+        duplicate_better = (
+            dup_metadata.dimensions.height * dup_metadata.dimensions.width
+        ) > (dimensions.height * dimensions.width)
+    except AttributeError:
+        duplicate_better = (
+            dup_metadata is not None and dup_metadata.dimensions is not None
+        ) and (dimensions is None)
     if duplicate_better:
         raise FoundBetterDuplicateException
     else:
@@ -283,3 +285,14 @@ def parse_date(
             return local_date
     local_date = utc_date.astimezone(tz=pytz.timezone(default_tz))
     return local_date
+
+
+def get_out_name(stem: str, suffix: str, date: dt.datetime) -> str:
+    date_str = date.strftime("%Y%m%d_%H%M%S")
+    if date_str in stem:
+        # return in_name.replace("IMG_", "").replace("VID_", "")
+        out_name = re.sub(r"(IMG|VID)_(.*)", r"\2_\1", stem)
+    else:
+        out_name = f"{date_str}_{stem}"
+    out_suffix = ".jpg" if suffix == ".png" else suffix
+    return out_name + out_suffix
