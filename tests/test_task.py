@@ -21,7 +21,7 @@ from kamera.task import Task
 from typing import Optional, Dict
 
 
-default_client_modified = dt.datetime(2000, 1, 1)
+default_client_modified = dt.datetime(2000, 1, 1, 10, 30)
 
 
 def make_image(
@@ -62,7 +62,7 @@ def run_task_process_entry(
         path_display=in_file.as_posix(), client_modified=default_client_modified
     )
     Task.dbx_cache[account_id] = MockDropbox()
-    Task.settings_cache[account_id] = MockSettings(account_id)
+    Task.settings_cache[account_id] = MockSettings(account_id)  # type: ignore
     Task.redis_client = fakeredis.FakeStrictRedis()
 
     task = Task(
@@ -190,8 +190,9 @@ def test_unsupported_ext(tmpdir) -> None:
     assert_contents_unchanged(root_dir, "Uploads")
 
 
+@pytest.mark.parametrize("extension", config.media_extensions)
 @pytest.mark.usefixtures("data_from_img_processing")
-def test_client_modified_date_used(tmpdir, settings) -> None:
+def test_client_modified_date_used(tmpdir, settings, extension) -> None:
     """datetime sent to image_processing (default_client_modified) is timezone-naive 01.01.2000 00:00
     this should be assumed to be utc. tests default timezone is "US/Eastern" (utc-05:00).
     client_modified_local should be 12.31.1999 19:00, folders created should be 1999 and 12
@@ -203,19 +204,18 @@ def test_client_modified_date_used(tmpdir, settings) -> None:
         tz=pytz.timezone("US/Eastern")
     )
     run_task_process_entry(
-        test_name="test_client_modified_date_used", ext=".jpg", root_dir=root_dir
+        test_name="test_client_modified_date_used", ext=extension, root_dir=root_dir
     )
     assert_file_moved_to_review_and_backup(root_dir)
-    assert_contents_changed(root_dir, "Review")
-    assert_contents_unchanged(root_dir, "Backup")
 
     year_folder, month_folder, out_file = (root_dir / "Review").rglob("*")
     assert year_folder.name == str(client_modified_local.year)
     assert month_folder.name == settings.folder_names[client_modified_local.month]
 
 
+@pytest.mark.parametrize("extension", config.media_extensions)
 @pytest.mark.usefixtures("data_from_img_processing")
-def test_time_taken_date_used(tmpdir, settings) -> None:
+def test_time_taken_date_used(tmpdir, settings, extension) -> None:
     """datetime sent to image_processing (in_date_naive) is timezone-naive 01.01.2010 00:00
     this should be assumed to be utc. tests default timezone is "US/Eastern" (utc-05:00).
     client_modified_local should be 12.31.2009 19:00, folders created should be 2009 and 12
@@ -230,21 +230,20 @@ def test_time_taken_date_used(tmpdir, settings) -> None:
     )
     run_task_process_entry(
         test_name="test_time_taken_date_used",
-        ext=".jpg",
+        ext=extension,
         root_dir=root_dir,
         metadata=metadata,
     )
     assert_file_moved_to_review_and_backup(root_dir)
-    assert_contents_changed(root_dir, "Review")
-    assert_contents_unchanged(root_dir, "Backup")
 
     year_folder, month_folder, out_file = (root_dir / "Review").rglob("*")
     assert year_folder.name == str(in_date_local.year)
     assert month_folder.name == settings.folder_names[in_date_local.month]
 
 
+@pytest.mark.parametrize("extension", config.media_extensions)
 @pytest.mark.usefixtures("data_from_img_processing")
-def test_time_taken_date_used_with_location(tmpdir, settings) -> None:
+def test_time_taken_date_used_with_location(tmpdir, settings, extension) -> None:
     """datetime sent to image_processing (in_date_naive) is timezone-naive 12.31.2014 23:00,
     with gps location in timezone "Europe/Paris"
     time_taken should be assumed to be utc. tests default timezone is "US/Eastern" (utc-05:00).
@@ -262,13 +261,11 @@ def test_time_taken_date_used_with_location(tmpdir, settings) -> None:
     )
     run_task_process_entry(
         test_name="test_time_taken_date_used_with_location",
-        ext=".jpg",
+        ext=extension,
         root_dir=root_dir,
         metadata=metadata,
     )
     assert_file_moved_to_review_and_backup(root_dir)
-    assert_contents_changed(root_dir, "Review")
-    assert_contents_unchanged(root_dir, "Backup")
 
     year_folder, month_folder, out_file = (root_dir / "Review").rglob("*")
     assert year_folder.name == str(in_date_local.year)
