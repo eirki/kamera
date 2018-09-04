@@ -283,11 +283,11 @@ def parse_date(
 
 
 def get_out_name(stem: str, suffix: str, date: dt.datetime) -> str:
-    date_str = date.strftime("%Y%m%d_%H%M%S")
-    if date_str in stem:
-        # return in_name.replace("IMG_", "").replace("VID_", "")
-        out_name = re.sub(r"(IMG|VID)_(.*)", r"\2_\1", stem)
+    ymd = date.strftime("%Y%m%d")
+    hms = date.strftime("%H%M%S")
+    if ymd in stem:
+        out_name = re.sub(rf"(.*)_+({ymd}.*)", r"\2_\1", stem)
     else:
-        out_name = f"{date_str}_{stem}"
+        out_name = f"{ymd}_{hms}_{stem}"
     out_suffix = ".jpg" if suffix == ".png" else suffix
     return out_name + out_suffix
