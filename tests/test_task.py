@@ -130,12 +130,13 @@ def assert_contents_unchanged(root_dir: Path, subfolder: str) -> None:
 
 
 @pytest.mark.parametrize("extension", config.video_extensions)
-@pytest.mark.usefixtures("data_from_img_processing")
-def test_video(tmpdir, extension) -> None:
+@pytest.mark.parametrize("process_img", [True, False])
+def test_video(tmpdir, extension, monkeypatch, process_img) -> None:
     root_dir = Path(tmpdir)
     make_all_temp_folders(root_dir)
+    monkeypatch_img_processing(monkeypatch, return_new_data=process_img)
     run_task_process_entry(
-        test_name=f"test_video{extension}", ext=extension, root_dir=root_dir
+        test_name=f"test_video{extension}{process_img}", ext=extension, root_dir=root_dir
     )
     assert_file_moved_to_review_and_backup(root_dir)
     assert_contents_unchanged(root_dir, "Review")
@@ -143,10 +144,10 @@ def test_video(tmpdir, extension) -> None:
 
 
 @pytest.mark.parametrize("extension", config.image_extensions)
-@pytest.mark.usefixtures("data_from_img_processing")
-def test_image_changed(tmpdir, extension) -> None:
+def test_image_changed(tmpdir, extension, monkeypatch) -> None:
     root_dir = Path(tmpdir)
     make_all_temp_folders(root_dir)
+    monkeypatch_img_processing(monkeypatch, return_new_data=True)
     run_task_process_entry(
         test_name=f"test_image_changed{extension}", ext=extension, root_dir=root_dir
     )
@@ -156,10 +157,10 @@ def test_image_changed(tmpdir, extension) -> None:
 
 
 @pytest.mark.parametrize("extension", config.image_extensions)
-@pytest.mark.usefixtures("no_img_processing")
-def test_image_unchanged(tmpdir, extension) -> None:
+def test_image_unchanged(tmpdir, extension, monkeypatch) -> None:
     root_dir = Path(tmpdir)
     make_all_temp_folders(root_dir)
+    monkeypatch_img_processing(monkeypatch, return_new_data=False)
     run_task_process_entry(
         test_name=f"test_image_unchanged{extension}", ext=extension, root_dir=root_dir
     )
@@ -169,38 +170,44 @@ def test_image_unchanged(tmpdir, extension) -> None:
 
 
 @pytest.mark.parametrize("extension", config.media_extensions)
-@pytest.mark.usefixtures("data_from_img_processing", "error_parse_date")
-def test_error(tmpdir, extension) -> None:
+@pytest.mark.parametrize("process_img", [True, False])
+@pytest.mark.usefixtures("error_parse_date")
+def test_error(tmpdir, extension, monkeypatch, process_img) -> None:
     root_dir = Path(tmpdir)
     make_all_temp_folders(root_dir)
+    monkeypatch_img_processing(monkeypatch, return_new_data=process_img)
     run_task_process_entry(
-        test_name=f"test_error{extension}", ext=extension, root_dir=root_dir
+        test_name=f"test_error{extension}{process_img}", ext=extension, root_dir=root_dir
     )
     assert_file_moved_to_error(root_dir)
     assert_contents_unchanged(root_dir, "Error")
 
 
-@pytest.mark.usefixtures()
-def test_unsupported_ext(tmpdir) -> None:
+@pytest.mark.parametrize("process_img", [True, False])
+def test_unsupported_ext(tmpdir, monkeypatch, process_img) -> None:
     root_dir = Path(tmpdir)
     make_all_temp_folders(root_dir)
+    monkeypatch_img_processing(monkeypatch, return_new_data=process_img)
     run_task_process_entry(
-        test_name="test_unsupported_ext", ext=".ext", root_dir=root_dir
+        test_name=f"test_unsupported_ext{process_img}", ext=".ext", root_dir=root_dir
     )
     assert_file_not_moved(root_dir)
     assert_contents_unchanged(root_dir, "Uploads")
 
 
 @pytest.mark.parametrize("extension", config.media_extensions)
-@pytest.mark.usefixtures("data_from_img_processing")
-def test_client_modified_date_used(tmpdir, settings, extension) -> None:
+@pytest.mark.parametrize("process_img", [True, False])
+def test_client_modified_date_used(
+    tmpdir, settings, extension, monkeypatch, process_img
+) -> None:
     """datetime sent to image_processing (default_client_modified) is timezone-naive 01.01.2000 00:00
     this should be assumed to be utc. tests default timezone is "US/Eastern" (utc-05:00).
     client_modified_local should be 12.31.1999 19:00, folders created should be 1999 and 12
      """
     root_dir = Path(tmpdir)
-    test_name = "test_client_modified_date_used"
     make_all_temp_folders(root_dir)
+    monkeypatch_img_processing(monkeypatch, return_new_data=process_img)
+    test_name = f"test_client_modified_date_used{extension}{process_img}"
     client_modified_utc = default_client_modified.replace(tzinfo=dt.timezone.utc)
     client_modified_local = client_modified_utc.astimezone(
         tz=pytz.timezone("US/Eastern")
@@ -217,15 +224,18 @@ def test_client_modified_date_used(tmpdir, settings, extension) -> None:
 
 
 @pytest.mark.parametrize("extension", config.media_extensions)
-@pytest.mark.usefixtures("data_from_img_processing")
-def test_time_taken_date_used(tmpdir, settings, extension) -> None:
+@pytest.mark.parametrize("process_img", [True, False])
+def test_time_taken_date_used(
+    tmpdir, settings, extension, monkeypatch, process_img
+) -> None:
     """datetime sent to image_processing (in_date_naive) is timezone-naive 01.01.2010 00:00
     this should be assumed to be utc. tests default timezone is "US/Eastern" (utc-05:00).
     client_modified_local should be 12.31.2009 19:00, folders created should be 2009 and 12
      """
     root_dir = Path(tmpdir)
-    test_name = "test_time_taken_date_used"
     make_all_temp_folders(root_dir)
+    monkeypatch_img_processing(monkeypatch, return_new_data=process_img)
+    test_name = f"test_time_taken_date_used{extension}{process_img}"
     in_date_naive = dt.datetime(2010, 1, 1, 0, 0)
     in_date_utc = in_date_naive.replace(tzinfo=dt.timezone.utc)
     in_date_local = in_date_utc.astimezone(tz=pytz.timezone("US/Eastern"))
@@ -246,16 +256,19 @@ def test_time_taken_date_used(tmpdir, settings, extension) -> None:
 
 
 @pytest.mark.parametrize("extension", config.media_extensions)
-@pytest.mark.usefixtures("data_from_img_processing")
-def test_time_taken_date_used_with_location(tmpdir, settings, extension) -> None:
+@pytest.mark.parametrize("process_img", [True, False])
+def test_time_taken_date_used_with_location(
+    tmpdir, settings, extension, monkeypatch, process_img
+) -> None:
     """datetime sent to image_processing (in_date_naive) is timezone-naive 12.31.2014 23:00,
     with gps location in timezone "Europe/Paris"
     time_taken should be assumed to be utc. tests default timezone is "US/Eastern" (utc-05:00).
     in_date_local should be 01.01.2015 00:00, folders created should be 2015 and 01
      """
     root_dir = Path(tmpdir)
-    test_name = "test_time_taken_date_used_with_location"
     make_all_temp_folders(root_dir)
+    monkeypatch_img_processing(monkeypatch, return_new_data=process_img)
+    test_name = f"test_time_taken_date_used_with_location{extension}{process_img}"
     in_date_naive = dt.datetime(2014, 12, 31, 23, 0)
     in_date_utc = in_date_naive.replace(tzinfo=dt.timezone.utc)
     in_date_local = in_date_utc.astimezone(tz=pytz.timezone("Europe/Paris"))
@@ -277,53 +290,34 @@ def test_time_taken_date_used_with_location(tmpdir, settings, extension) -> None
     assert out_file.stem.endswith(test_name)
 
 
-@pytest.mark.usefixtures("data_from_img_processing")
-def test_date_moved_to_filename_start_IMG(tmpdir, settings) -> None:
+@pytest.mark.parametrize("process_img", [True, False])
+@pytest.mark.parametrize("prefix", ["IMG", "VID"])
+def test_date_moved_to_filename_start(
+    tmpdir, settings, monkeypatch, process_img, prefix
+) -> None:
     root_dir = Path(tmpdir)
     make_all_temp_folders(root_dir)
+    monkeypatch_img_processing(monkeypatch, return_new_data=process_img)
     client_modified_utc = default_client_modified.replace(tzinfo=dt.timezone.utc)
     client_modified_local = client_modified_utc.astimezone(
         tz=pytz.timezone("US/Eastern")
     )
     date_str = client_modified_local.strftime("%Y%m%d_%H%M%S")
     run_task_process_entry(
-        test_name="test_date_moved_to_filename_start",
+        test_name=f"test_date_moved_to_filename_start{process_img}{prefix}",
         ext=".jpg",
         root_dir=root_dir,
-        file_name=f"IMG_{date_str}",
+        file_name=f"{prefix}_{date_str}",
     )
     assert_file_moved_to_review_and_backup(root_dir)
-    assert_contents_changed(root_dir, "Review")
-    assert_contents_unchanged(root_dir, "Backup")
 
     _, _, out_file = (root_dir / "Review").rglob("*")
-    assert out_file.stem == f"{date_str}_IMG"
+    assert out_file.stem == f"{date_str}_{prefix}"
 
 
-@pytest.mark.usefixtures("data_from_img_processing")
-def test_date_moved_to_filename_start_VID(tmpdir, settings) -> None:
-    root_dir = Path(tmpdir)
-    make_all_temp_folders(root_dir)
-    client_modified_utc = default_client_modified.replace(tzinfo=dt.timezone.utc)
-    client_modified_local = client_modified_utc.astimezone(
-        tz=pytz.timezone("US/Eastern")
-    )
-    date_str = client_modified_local.strftime("%Y%m%d_%H%M%S")
-    run_task_process_entry(
-        test_name="test_date_moved_to_filename_start",
-        ext=".mp4",
-        root_dir=root_dir,
-        file_name=f"VID_{date_str}",
-    )
-    assert_file_moved_to_review_and_backup(root_dir)
-    assert_contents_unchanged(root_dir, "Backup")
-
-    _, _, out_file = (root_dir / "Review").rglob("*")
-    assert out_file.stem == f"{date_str}_VID"
-
-
-@pytest.mark.usefixtures("data_from_img_processing")
-def test_settings_caching(monkeypatch, tmpdir, settings) -> None:
+def test_settings_caching(
+    tmpdir, settings, monkeypatch
+) -> None:
     monkeypatch.setattr("kamera.task.config.Settings", MockSettings)
     account_id = "test_settings_caching"
     fake_redis_client = fakeredis.FakeStrictRedis()
@@ -370,15 +364,18 @@ def test_settings_caching(monkeypatch, tmpdir, settings) -> None:
 
 
 @pytest.mark.parametrize("extension", config.image_extensions)
-@pytest.mark.usefixtures("no_img_processing")
-def test_duplicate_worse(tmpdir, extension) -> None:
+@pytest.mark.parametrize("process_img", [True, False])
+def test_duplicate_worse(
+    tmpdir, extension, monkeypatch, process_img
+) -> None:
     root_dir = Path(tmpdir)
     make_all_temp_folders(root_dir)
+    monkeypatch_img_processing(monkeypatch, return_new_data=process_img)
     metadata = dropbox.files.PhotoMetadata(
         dimensions=dropbox.files.Dimensions(100, 100)
     )
     run_task_process_entry(
-        test_name="test_duplicate_worse" + extension,
+        test_name=f"test_duplicate_worse{extension}{process_img}",
         ext=extension,
         root_dir=root_dir,
         file_name="worse",
@@ -388,7 +385,7 @@ def test_duplicate_worse(tmpdir, extension) -> None:
         dimensions=dropbox.files.Dimensions(150, 150)
     )
     run_task_process_entry(
-        test_name="test_duplicate_worse" + extension,
+        test_name=f"test_duplicate_worse{extension}{process_img}",
         ext=extension,
         root_dir=root_dir,
         file_name="better",
@@ -408,15 +405,18 @@ def test_duplicate_worse(tmpdir, extension) -> None:
 
 
 @pytest.mark.parametrize("extension", config.image_extensions)
-@pytest.mark.usefixtures("no_img_processing")
-def test_duplicate_better(tmpdir, extension) -> None:
+@pytest.mark.parametrize("process_img", [True, False])
+def test_duplicate_better(
+    tmpdir, extension, monkeypatch, process_img
+) -> None:
     root_dir = Path(tmpdir)
     make_all_temp_folders(root_dir)
+    monkeypatch_img_processing(monkeypatch, return_new_data=process_img)
     metadata = dropbox.files.PhotoMetadata(
         dimensions=dropbox.files.Dimensions(150, 150)
     )
     run_task_process_entry(
-        test_name="test_duplicate_better" + extension,
+        test_name=f"test_duplicate_better{extension}{process_img}",
         ext=extension,
         root_dir=root_dir,
         file_name="better",
@@ -426,7 +426,7 @@ def test_duplicate_better(tmpdir, extension) -> None:
         dimensions=dropbox.files.Dimensions(100, 100)
     )
     run_task_process_entry(
-        test_name="test_duplicate_better" + extension,
+        test_name=f"test_duplicate_better{extension}{process_img}",
         ext=extension,
         root_dir=root_dir,
         file_name="worse",
@@ -445,24 +445,21 @@ def test_duplicate_better(tmpdir, extension) -> None:
     assert len(list((root_dir / "Backup").rglob("*better*"))) == 1
 
 
-@pytest.fixture()
-def no_img_processing(monkeypatch):
+def monkeypatch_img_processing(monkeypatch, return_new_data: bool) -> None:
     def no_img_processing_mock(*args, **kwargs):
         new_data = None
         return new_data
 
-    monkeypatch.setattr("kamera.task.image_processing.main", no_img_processing_mock)
-
-
-@pytest.fixture()
-def data_from_img_processing(monkeypatch):
-    def data_from_img_processing_mock(*args, **kwargs):
-        new_data = make_image(changed=True)
+    def process_img_mock(dimensions, *args, **kwargs):
+        new_data = make_image(dimensions=dimensions, changed=True)
         return new_data
 
-    monkeypatch.setattr(
-        "kamera.task.image_processing.main", data_from_img_processing_mock
-    )
+    if return_new_data is True:
+        monkeypatch.setattr(
+            "kamera.task.image_processing.main", process_img_mock
+        )
+    else:
+        monkeypatch.setattr("kamera.task.image_processing.main", no_img_processing_mock)
 
 
 @pytest.fixture()
