@@ -51,8 +51,9 @@ def run_task_process_entry(
     file_name: Optional[str] = None,
     metadata: Optional[dropbox.files.PhotoMetadata] = None,
 ) -> None:
-    in_file = root_dir / "Uploads" / f"{file_name}{ext}"
     account_id = test_name
+    stem = test_name if file_name is None else file_name
+    in_file = root_dir / "Uploads" / f"{stem}{ext}"
     image = make_image(
         changed=False, dimensions=metadata.dimensions if metadata else None
     )
@@ -88,7 +89,7 @@ def assert_file_not_moved(root_dir: Path) -> None:
     uploads_contents, review_contents, backup_contents, error_contents = _get_folder_contents(
         root_dir
     )
-    assert error_contents == []
+    assert error_contents == [], "No error during processing"
     assert len(uploads_contents) == 1
     assert review_contents == []
     assert backup_contents == []
@@ -98,7 +99,7 @@ def assert_file_moved_to_review_and_backup(root_dir: Path) -> None:
     uploads_contents, review_contents, backup_contents, error_contents = _get_folder_contents(
         root_dir
     )
-    assert error_contents == []
+    assert error_contents == [], "No error during processing"
     assert uploads_contents == []
     assert len(review_contents) == 3
     assert len(backup_contents) == 3
@@ -197,14 +198,13 @@ def test_client_modified_date_used(tmpdir, settings) -> None:
     client_modified_local should be 12.31.1999 19:00, folders created should be 1999 and 12
      """
     root_dir = Path(tmpdir)
+    test_name = "test_client_modified_date_used"
     make_all_temp_folders(root_dir)
     client_modified_utc = default_client_modified.replace(tzinfo=dt.timezone.utc)
     client_modified_local = client_modified_utc.astimezone(
         tz=pytz.timezone("US/Eastern")
     )
-    run_task_process_entry(
-        test_name="test_client_modified_date_used", ext=".jpg", root_dir=root_dir
-    )
+    run_task_process_entry(test_name=test_name, ext=".jpg", root_dir=root_dir)
     assert_file_moved_to_review_and_backup(root_dir)
     assert_contents_changed(root_dir, "Review")
     assert_contents_unchanged(root_dir, "Backup")
@@ -212,6 +212,9 @@ def test_client_modified_date_used(tmpdir, settings) -> None:
     year_folder, month_folder, out_file = (root_dir / "Review").rglob("*")
     assert year_folder.name == str(client_modified_local.year)
     assert month_folder.name == settings.folder_names[client_modified_local.month]
+    date_str = client_modified_local.strftime("%Y%m%d_%H%M%S")
+    assert out_file.stem.startswith(date_str)
+    assert out_file.stem.endswith(test_name)
 
 
 @pytest.mark.usefixtures("data_from_img_processing")
@@ -221,6 +224,7 @@ def test_time_taken_date_used(tmpdir, settings) -> None:
     client_modified_local should be 12.31.2009 19:00, folders created should be 2009 and 12
      """
     root_dir = Path(tmpdir)
+    test_name = "test_time_taken_date_used"
     make_all_temp_folders(root_dir)
     in_date_naive = dt.datetime(2010, 1, 1, 0, 0)
     in_date_utc = in_date_naive.replace(tzinfo=dt.timezone.utc)
@@ -229,10 +233,7 @@ def test_time_taken_date_used(tmpdir, settings) -> None:
         dimensions=None, location=None, time_taken=in_date_naive
     )
     run_task_process_entry(
-        test_name="test_time_taken_date_used",
-        ext=".jpg",
-        root_dir=root_dir,
-        metadata=metadata,
+        test_name=test_name, ext=".jpg", root_dir=root_dir, metadata=metadata
     )
     assert_file_moved_to_review_and_backup(root_dir)
     assert_contents_changed(root_dir, "Review")
@@ -241,6 +242,9 @@ def test_time_taken_date_used(tmpdir, settings) -> None:
     year_folder, month_folder, out_file = (root_dir / "Review").rglob("*")
     assert year_folder.name == str(in_date_local.year)
     assert month_folder.name == settings.folder_names[in_date_local.month]
+    date_str = in_date_local.strftime("%Y%m%d_%H%M%S")
+    assert out_file.stem.startswith(date_str)
+    assert out_file.stem.endswith(test_name)
 
 
 @pytest.mark.usefixtures("data_from_img_processing")
@@ -251,6 +255,7 @@ def test_time_taken_date_used_with_location(tmpdir, settings) -> None:
     in_date_local should be 01.01.2015 00:00, folders created should be 2015 and 01
      """
     root_dir = Path(tmpdir)
+    test_name = "test_time_taken_date_used_with_location"
     make_all_temp_folders(root_dir)
     in_date_naive = dt.datetime(2014, 12, 31, 23, 0)
     in_date_utc = in_date_naive.replace(tzinfo=dt.timezone.utc)
@@ -261,10 +266,7 @@ def test_time_taken_date_used_with_location(tmpdir, settings) -> None:
         time_taken=in_date_naive,
     )
     run_task_process_entry(
-        test_name="test_time_taken_date_used_with_location",
-        ext=".jpg",
-        root_dir=root_dir,
-        metadata=metadata,
+        test_name=test_name, ext=".jpg", root_dir=root_dir, metadata=metadata
     )
     assert_file_moved_to_review_and_backup(root_dir)
     assert_contents_changed(root_dir, "Review")
@@ -273,6 +275,54 @@ def test_time_taken_date_used_with_location(tmpdir, settings) -> None:
     year_folder, month_folder, out_file = (root_dir / "Review").rglob("*")
     assert year_folder.name == str(in_date_local.year)
     assert month_folder.name == settings.folder_names[in_date_local.month]
+    date_str = in_date_local.strftime("%Y%m%d_%H%M%S")
+    assert out_file.stem.startswith(date_str)
+    assert out_file.stem.endswith(test_name)
+
+
+@pytest.mark.usefixtures("data_from_img_processing")
+def test_date_moved_to_filename_start_IMG(tmpdir, settings) -> None:
+    root_dir = Path(tmpdir)
+    make_all_temp_folders(root_dir)
+    client_modified_utc = default_client_modified.replace(tzinfo=dt.timezone.utc)
+    client_modified_local = client_modified_utc.astimezone(
+        tz=pytz.timezone("US/Eastern")
+    )
+    date_str = client_modified_local.strftime("%Y%m%d_%H%M%S")
+    run_task_process_entry(
+        test_name="test_date_moved_to_filename_start",
+        ext=".jpg",
+        root_dir=root_dir,
+        file_name=f"IMG_{date_str}",
+    )
+    assert_file_moved_to_review_and_backup(root_dir)
+    assert_contents_changed(root_dir, "Review")
+    assert_contents_unchanged(root_dir, "Backup")
+
+    _, _, out_file = (root_dir / "Review").rglob("*")
+    assert out_file.stem == f"{date_str}_IMG"
+
+
+@pytest.mark.usefixtures("data_from_img_processing")
+def test_date_moved_to_filename_start_VID(tmpdir, settings) -> None:
+    root_dir = Path(tmpdir)
+    make_all_temp_folders(root_dir)
+    client_modified_utc = default_client_modified.replace(tzinfo=dt.timezone.utc)
+    client_modified_local = client_modified_utc.astimezone(
+        tz=pytz.timezone("US/Eastern")
+    )
+    date_str = client_modified_local.strftime("%Y%m%d_%H%M%S")
+    run_task_process_entry(
+        test_name="test_date_moved_to_filename_start",
+        ext=".mp4",
+        root_dir=root_dir,
+        file_name=f"VID_{date_str}",
+    )
+    assert_file_moved_to_review_and_backup(root_dir)
+    assert_contents_unchanged(root_dir, "Backup")
+
+    _, _, out_file = (root_dir / "Review").rglob("*")
+    assert out_file.stem == f"{date_str}_VID"
 
 
 @pytest.mark.usefixtures("data_from_img_processing")
@@ -350,7 +400,7 @@ def test_duplicate_worse(tmpdir, extension) -> None:
     uploads_contents, review_contents, backup_contents, error_contents = _get_folder_contents(
         root_dir
     )
-    assert error_contents == []
+    assert error_contents == [], "No error during processing"
     assert uploads_contents == []
     assert len(review_contents) == 3
     assert len(backup_contents) == 4
@@ -388,7 +438,7 @@ def test_duplicate_better(tmpdir, extension) -> None:
     uploads_contents, review_contents, backup_contents, error_contents = _get_folder_contents(
         root_dir
     )
-    assert error_contents == []
+    assert error_contents == [], "No error during processing"
     assert uploads_contents == []
     assert len(review_contents) == 3
     assert len(backup_contents) == 4
