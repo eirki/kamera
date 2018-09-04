@@ -20,6 +20,8 @@ except ImportError:
 
 from typing import List, Dict
 from dropbox import Dropbox
+from requests import Response
+from redis import Redis
 
 env_path = Path(".") / ".env"
 load_dotenv(dotenv_path=env_path)
@@ -52,7 +54,7 @@ class Settings:
         settings_data = _load_settings(dbx)
         self.default_tz: str = settings_data["default_tz"]
         self.recognition_tolerance: float = settings_data["recognition_tolerance"]
-        self.folder_names: Dict[str, str] = settings_data["folder_names"]
+        self.folder_names: Dict[int, str] = settings_data["folder_names"]
         self.tag_swaps: Dict[str, str] = settings_data.pop("tag_swaps")
         location_data = _load_location_data(dbx)
         self.locations: List[Area] = location_data
@@ -61,7 +63,7 @@ class Settings:
             self.recognition_data: Dict[str, List[np.array]] = recognition_data
 
 
-def _load_settings(dbx: Dropbox):
+def _load_settings(dbx: Dropbox) -> dict:
     settings_file = config_path / "settings.yaml"
     _, response = dbx.files_download(settings_file.as_posix())
     settings = yaml.safe_load(response.raw.data)
@@ -81,7 +83,7 @@ class Area(NamedTuple):
     spots: List[Spot]
 
 
-def _load_location_data(dbx: Dropbox):
+def _load_location_data(dbx: Dropbox) -> List[Area]:
     places_file = config_path / "places.yaml"
     _, response = dbx.files_download(places_file.as_posix())
     location_dict = yaml.safe_load(response.raw.data)
@@ -97,7 +99,7 @@ def _load_location_data(dbx: Dropbox):
     return areas
 
 
-def _load_recognition_data(dbx: Dropbox):
+def _load_recognition_data(dbx: Dropbox) -> Dict[str, List[np.array]]:
     recognition_path = config_path / "people"
     result = dbx.files_list_folder(path=recognition_path.as_posix(), recursive=True)
 
@@ -129,14 +131,18 @@ def _load_recognition_data(dbx: Dropbox):
     return people
 
 
-async def _load_encoding_json(file, dbx, people, loop):
+async def _load_encoding_json(
+    file: Path, dbx: Dropbox, people: Dict[str, List], loop: asyncio.AbstractEventLoop
+) -> None:
     name = file.parents[0].name
     _, response = await loop.run_in_executor(None, dbx.files_download, file.as_posix())
     encoding = np.array(json.loads(response.raw.data))
     people[name].append(encoding)
 
 
-async def _load_encoding_img(img, dbx, people, loop):
+async def _load_encoding_img(
+    img: Path, dbx: Dropbox, people: Dict[str, List], loop: asyncio.AbstractEventLoop
+) -> None:
     name = img.parents[0].name
     _, response = await loop.run_in_executor(None, dbx.files_download, img.as_posix())
     encoding = _get_facial_encoding(response, img)
@@ -152,7 +158,7 @@ async def _load_encoding_img(img, dbx, people, loop):
     people[name].append(encoding)
 
 
-def _get_facial_encoding(response, img_path: Path) -> np.array:
+def _get_facial_encoding(response: Response, img_path: Path) -> np.array:
     loaded_img = face_recognition.load_image_file(BytesIO(response.raw.data))
     encodings = face_recognition.face_encodings(loaded_img)
     if len(encodings) == 0:
@@ -164,6 +170,6 @@ def _get_facial_encoding(response, img_path: Path) -> np.array:
     return encoding
 
 
-def get_dbx_token(redis_client, account_id):
+def get_dbx_token(redis_client: Redis, account_id: str) -> str:
     token = redis_client.hget(f"user:{account_id}", "token").decode()
     return token
