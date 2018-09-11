@@ -74,6 +74,12 @@ def verify() -> str:
     return request.args.get("challenge")
 
 
+@app.route("/queued", methods=["GET"])
+def get_n_queued() -> str:
+    n_queued = queue.count + running_jobs_registry.count
+    return str(n_queued)
+
+
 def check_enqueue_entries(account_id: str):
     queued_and_running_jobs = set(queue.job_ids) | set(
         running_jobs_registry.get_job_ids()
@@ -154,27 +160,25 @@ def dbx_list_entries(
 
 def main(mode: str) -> None:
     if mode == "server":
-        redis_lock.reset_all()
         app.run()
-    else:
-        if mode == "worker":
-            with rq.Connection(redis_client):
-                worker = rq.SimpleWorker(queues=[queue])
-                worker.work()
-        elif mode == "run_once":
-            account_id = sys.argv[2]
-            dbx = dropbox.Dropbox(config.get_dbx_token(redis_client, account_id))
-            Task.dbx_cache[account_id] = dbx
-            for entry, metadata in dbx_list_entries(dbx, config.uploads_path):
-                task = Task(
-                    account_id,
-                    entry,
-                    metadata,
-                    config.review_path,
-                    config.backup_path,
-                    config.errors_path,
-                )
-                task.process_entry()
+    elif mode == "worker":
+        with rq.Connection(redis_client):
+            worker = rq.SimpleWorker(queues=[queue])
+            worker.work()
+    elif mode == "run_once":
+        account_id = sys.argv[2]
+        dbx = dropbox.Dropbox(config.get_dbx_token(redis_client, account_id))
+        Task.dbx_cache[account_id] = dbx
+        for entry, metadata in dbx_list_entries(dbx, config.uploads_path):
+            task = Task(
+                account_id,
+                entry,
+                metadata,
+                config.review_path,
+                config.backup_path,
+                config.errors_path,
+            )
+            task.process_entry()
 
 
 if __name__ == "__main__":
