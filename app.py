@@ -20,7 +20,7 @@ import dropbox
 from kamera.task import Task
 from kamera import config
 
-from typing import Optional, Generator, Tuple
+from typing import Optional, Generator, Tuple, Set
 
 
 app = Flask(__name__)
@@ -74,16 +74,25 @@ def verify() -> str:
     return request.args.get("challenge")
 
 
-@app.route("/queued", methods=["GET"])
-def get_n_queued() -> str:
-    n_queued = queue.count + running_jobs_registry.count
+@app.route("/queued/<account_id>", methods=["GET"])
+def get_n_queued(account_id: str) -> str:
+    queued_and_running_jobs = get_queued_and_running_jobs()
+    account_jobs = [
+        job_id for job_id in queued_and_running_jobs if job_id.startswith(account_id)
+    ]
+    n_queued = len(account_jobs)
     return str(n_queued)
 
 
-def check_enqueue_entries(account_id: str):
+def get_queued_and_running_jobs() -> Set[str]:
     queued_and_running_jobs = set(queue.job_ids) | set(
         running_jobs_registry.get_job_ids()
     )
+    return queued_and_running_jobs
+
+
+def check_enqueue_entries(account_id: str):
+    queued_and_running_jobs = get_queued_and_running_jobs()
     log.debug(queued_and_running_jobs)
     token = config.get_dbx_token(get_redis_client(), account_id)
     dbx = dropbox.Dropbox(token)
