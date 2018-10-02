@@ -15,6 +15,7 @@ import requests
 import redis
 from PIL import Image
 import imagehash
+from resizeimage import resizeimage
 
 from kamera import config
 from kamera import image_processing
@@ -177,6 +178,7 @@ def handle_duplication(
     try:
         dup_entry = dbx.files_get_metadata(dup_file_path, include_media_info=True)
     except dropbox.exceptions.ApiError:
+        log.info("Duplicate hash found, but image not in dbx")
         delete_hash(account_id_and_img_hash, redis_client)
         return
     dup_metadata = dup_entry.media_info.get_metadata() if dup_entry.media_info else None
@@ -191,13 +193,18 @@ def handle_duplication(
     if duplicate_better:
         raise FoundBetterDuplicateException
     else:
+        log.info(f"{self.name}: Found worse duplicate, deleting: {dup_entry.path_display}")
         delete_entry(dup_entry, dbx)
         delete_hash(account_id_and_img_hash, redis_client)
 
 
 def get_hash(data: bytes) -> str:
     img = Image.open(BytesIO(data))
-    img_hash = imagehash.whash(img)
+    if img.height > 500:
+        small_img = resizeimage.resize_height(img, size=500)
+    else:
+        small_img = img
+    img_hash = imagehash.whash(small_img)
     return img_hash
 
 
