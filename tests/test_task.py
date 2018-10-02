@@ -278,7 +278,9 @@ def test_time_taken_date_used_with_location(
     in_date_local = in_date_utc.astimezone(tz=pytz.timezone("Europe/Paris"))
     metadata = dropbox.files.PhotoMetadata(
         dimensions=None,
-        location=dropbox.files.GpsCoordinates(latitude=48.8662694, longitude=2.3242583),
+        location=dropbox.files.GpsCoordinates(
+            latitude=48.866_269_4, longitude=2.324_258_3
+        ),
         time_taken=in_date_naive,
     )
     run_task_process_entry(

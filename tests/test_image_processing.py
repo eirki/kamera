@@ -96,7 +96,9 @@ def fetch_desired_output(filename: str) -> bytes:
 
 def test_tag_spot(settings) -> None:
     filename = "spot.jpg"
-    coordinates = dropbox.files.GpsCoordinates(latitude=48.8662694, longitude=2.3242583)
+    coordinates = dropbox.files.GpsCoordinates(
+        latitude=48.866_269_4, longitude=2.324_258_3
+    )
     output = run_image_processing_main(filename, settings, coordinates=coordinates)
     desired_output = fetch_desired_output(filename)
     assert_image_attrs_identical(output, desired_output)
@@ -104,7 +106,9 @@ def test_tag_spot(settings) -> None:
 
 def test_tag_area(settings) -> None:
     filename = "area.jpg"
-    coordinates = dropbox.files.GpsCoordinates(latitude=48.8715194, longitude=2.3372444)
+    coordinates = dropbox.files.GpsCoordinates(
+        latitude=48.871_519_4, longitude=2.337_244_4
+    )
     output = run_image_processing_main(filename, settings, coordinates=coordinates)
     desired_output = fetch_desired_output(filename)
     assert_image_attrs_identical(output, desired_output)
@@ -124,7 +128,9 @@ def test_png(settings) -> None:
 
 def test_tag_swap(settings) -> None:
     filename = "tag_swap.jpg"
-    coordinates = dropbox.files.GpsCoordinates(latitude=48.8698583, longitude=2.3523166)
+    coordinates = dropbox.files.GpsCoordinates(
+        latitude=48.869_858_3, longitude=2.352_316_6
+    )
     output = run_image_processing_main(filename, settings, coordinates=coordinates)
     desired_output = fetch_desired_output(filename)
     assert_image_attrs_identical(output, desired_output)
@@ -141,7 +147,9 @@ def test_resize(settings) -> None:
 def test_resize_tag_coordinates(settings) -> None:
     filename = "resize, spot.jpg"
     dimensions = dropbox.files.Dimensions(height=3024, width=4032)
-    coordinates = dropbox.files.GpsCoordinates(latitude=48.8662694, longitude=2.3242583)
+    coordinates = dropbox.files.GpsCoordinates(
+        latitude=48.866_269_4, longitude=2.324_258_3
+    )
     output = run_image_processing_main(
         filename, settings, dimensions=dimensions, coordinates=coordinates
     )

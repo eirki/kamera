@@ -112,7 +112,7 @@ class Task:
             out_name = get_out_name(self.path.stem, self.path.suffix, date)
             subfolder = Path(str(date.year), settings.folder_names[date.month])
             review_path = self.review_dir / subfolder / out_name
-            backup_path = self.backup_dir / subfolder / out_name
+            backup_path = self.backup_dir / subfolder / self.name
 
             if self.path.suffix.lower() in config.video_extensions:
                 copy_entry(dbx, self.path, review_path)
@@ -193,7 +193,7 @@ def handle_duplication(
     if duplicate_better:
         raise FoundBetterDuplicateException
     else:
-        log.info(f"{self.name}: Found worse duplicate, deleting: {dup_entry.path_display}")
+        log.info(f"Found worse duplicate, deleting: {dup_entry.path_display}")
         delete_entry(dup_entry, dbx)
         delete_hash(account_id_and_img_hash, redis_client)
 
