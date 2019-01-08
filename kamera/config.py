@@ -8,6 +8,7 @@ import json
 import asyncio
 from typing import NamedTuple
 import functools
+import dropbox
 
 import yaml
 from dotenv import load_dotenv
@@ -54,10 +55,32 @@ class Settings:
         settings_data = _load_settings(dbx)
         self.default_tz: str = settings_data["default_tz"]
         self.recognition_tolerance: float = settings_data["recognition_tolerance"]
-        self.folder_names: Dict[int, str] = settings_data["folder_names"]
-        self.tag_swaps: Dict[str, str] = settings_data.pop("tag_swaps")
-        location_data = _load_location_data(dbx)
-        self.locations: List[Area] = location_data
+        try:
+            self.folder_names: Dict[int, str] = settings_data["folder_names"]
+        except KeyError:
+            self.folder_names: Dict[int, str] = {
+                1: "01",
+                2: "02",
+                3: "03",
+                4: "04",
+                5: "05",
+                6: "06",
+                7: "07",
+                8: "08",
+                9: "09",
+                10: "10",
+                11: "11",
+                12: "12",
+            }
+        try:
+            self.tag_swaps: Dict[str, str] = settings_data.pop("tag_swaps")
+        except KeyError:
+            self.tag_swaps = {}
+        try:
+            location_data = _load_location_data(dbx)
+            self.locations: List[Area] = location_data
+        except dropbox.exceptions.ApiError:
+            self.locations: List[Area] = []
         if face_recognition is not None:
             recognition_data = _load_recognition_data(dbx)
             self.recognition_data: Dict[str, List[np.array]] = recognition_data
@@ -118,7 +141,7 @@ def _load_recognition_data(dbx: Dropbox) -> Dict[str, List[np.array]]:
         path
         for path in paths
         if (
-            path.suffix in image_extensions
+            path.suffix.lower() in image_extensions
             and path.with_suffix(".json") not in json_files
         )
     }
