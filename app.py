@@ -146,6 +146,9 @@ def dbx_list_entries(
     Tuple[dropbox.files.FileMetadata, Optional[dropbox.files.PhotoMetadata]], None, None
 ]:
     result = dbx.files_list_folder(path=path.as_posix(), include_media_info=True)
+    if len(result.entries) == 0:
+        # Retry - sometimes webhook fires to quickly?
+        result = dbx.files_list_folder(path=path.as_posix(), include_media_info=True)
     while True:
         log.info(f"Entries in upload folder: {len(result.entries)}")
         log.debug(result.entries)
