@@ -169,6 +169,12 @@ def test_add_date(settings) -> None:
     assert_image_attrs_identical(output, desired_output)
 
 
+def test_scenetype_workaround(settings) -> None:
+    filename = "scenetype.jpg"
+    dimensions = dropbox.files.Dimensions(height=3456, width=4608)
+    run_image_processing_main(filename, settings, dimensions=dimensions)
+
+
 if face_recognition is not None:
 
     def test_recognition(settings) -> None:
