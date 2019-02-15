@@ -295,11 +295,13 @@ def parse_date(
 
 
 def get_out_name(stem: str, suffix: str, date: dt.datetime) -> str:
-    ymd = date.strftime("%Y%m%d")
-    hms = date.strftime("%H%M%S")
-    if ymd in stem:
-        out_name = re.sub(rf"(.*)_+({ymd}.*)", r"\2_\1", stem)
-    else:
-        out_name = f"{ymd}_{hms}_{stem}"
+    in_ymd1 = date.strftime("_%Y%m%d_%H%M%S")
+    in_ymd2 = date.strftime(" %Y-%m-%d %H_%M_%S")
+    out_ymd = date.strftime("%Y-%m-%d %H.%M.%S")
+    if in_ymd1 in stem:
+        stem = stem.replace(in_ymd1, "")
+    elif in_ymd2 in stem:
+        stem = stem.replace(in_ymd2, "")
+    out_name = out_ymd + " " + stem
     out_suffix = ".jpg" if suffix == ".png" else suffix
     return out_name + out_suffix
