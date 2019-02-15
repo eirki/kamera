@@ -22,6 +22,7 @@ from typing import Optional, Dict
 
 
 default_client_modified = dt.datetime(2000, 1, 1, 10, 30)
+date_fmt = "%Y-%m-%d %H.%M.%S"
 
 
 def make_image(
@@ -222,7 +223,7 @@ def test_client_modified_date_used(
     year_folder, month_folder, out_file = (root_dir / "Review").rglob("*")
     assert year_folder.name == str(client_modified_local.year)
     assert month_folder.name == settings.folder_names[client_modified_local.month]
-    date_str = client_modified_local.strftime("%Y%m%d_%H%M%S")
+    date_str = client_modified_local.strftime(date_fmt)
     assert out_file.stem.startswith(date_str)
     assert out_file.stem.endswith(test_name)
 
@@ -254,7 +255,7 @@ def test_time_taken_date_used(
     year_folder, month_folder, out_file = (root_dir / "Review").rglob("*")
     assert year_folder.name == str(in_date_local.year)
     assert month_folder.name == settings.folder_names[in_date_local.month]
-    date_str = in_date_local.strftime("%Y%m%d_%H%M%S")
+    date_str = in_date_local.strftime(date_fmt)
     assert out_file.stem.startswith(date_str)
     assert out_file.stem.endswith(test_name)
 
@@ -291,7 +292,7 @@ def test_time_taken_date_used_with_location(
     year_folder, month_folder, out_file = (root_dir / "Review").rglob("*")
     assert year_folder.name == str(in_date_local.year)
     assert month_folder.name == settings.folder_names[in_date_local.month]
-    date_str = in_date_local.strftime("%Y%m%d_%H%M%S")
+    date_str = in_date_local.strftime(date_fmt)
     assert out_file.stem.startswith(date_str)
     assert out_file.stem.endswith(test_name)
 
@@ -308,17 +309,18 @@ def test_date_moved_to_filename_start(
     client_modified_local = client_modified_utc.astimezone(
         tz=pytz.timezone("US/Eastern")
     )
-    date_str = client_modified_local.strftime("%Y%m%d_%H%M%S")
+    date_str_in = client_modified_local.strftime("%Y%m%d_%H%M%S")
+    date_str_out = client_modified_local.strftime(date_fmt)
     run_task_process_entry(
         test_name=f"test_date_moved_to_filename_start{process_img}{prefix}",
         ext=".jpg",
         root_dir=root_dir,
-        file_name=f"{prefix}_{date_str}",
+        file_name=f"{prefix}_{date_str_in}",
     )
     assert_file_moved_to_review_and_backup(root_dir)
 
     _, _, out_file = (root_dir / "Review").rglob("*")
-    assert out_file.stem == f"{date_str}_{prefix}"
+    assert out_file.stem == f"{date_str_out} {prefix}"
 
 
 def test_settings_caching(tmpdir, settings, monkeypatch) -> None:
