@@ -1,0 +1,44 @@
+version: '3'
+services:
+  kamera_server:
+    container_name: kamera_server
+    build: .
+    env_file:
+      - .env
+    command: "venv/bin/python -m kamera --mode server"
+    expose:
+      - 5001
+    ports:
+      - "5001:5001"
+    depends_on:
+      - redis
+    networks:
+      - kamera_network
+      - nginx_network
+  kamera_worker:
+    container_name: kamera_worker
+    build: .
+    env_file:
+      - .env
+    command: "venv/bin/python -m kamera --mode worker"
+    depends_on:
+      - redis
+    networks:
+      - kamera_network
+  redis:
+    container_name: redis
+    image: redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - ./redis-data:/data
+    restart: always
+    entrypoint: redis-server --appendonly yes
+    networks:
+      - kamera_network
+
+networks:
+  nginx_network:
+    external:
+      name: nginx_default
+  kamera_network: ~
