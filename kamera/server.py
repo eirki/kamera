@@ -24,6 +24,7 @@ from typing import Optional, Generator, Tuple, Set
 
 app = Flask(__name__)
 
+
 redis_client = redis.from_url(config.redis_url)
 queue = rq.Queue(connection=redis_client)
 running_jobs_registry = rq.registry.StartedJobRegistry(connection=redis_client)
@@ -66,7 +67,7 @@ def hello_world() -> str:
     return f"{config.app_id}.home"
 
 
-@app.route("/kamera", methods=["GET"])
+@app.route("/webhook", methods=["GET"])
 def verify() -> str:
     """Respond to the webhook verification (GET request) by echoing back the challenge parameter."""
 
@@ -111,7 +112,7 @@ def check_enqueue_entries(account_id: str):
         queue.enqueue(task.process_entry, result_ttl=600, job_id=job_id)
 
 
-@app.route("/kamera", methods=["POST"])
+@app.route("/webhook", methods=["POST"])
 def webhook() -> str:
     log.info("request incoming")
     signature = request.headers.get("X-Dropbox-Signature")
