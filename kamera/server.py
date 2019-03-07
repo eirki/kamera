@@ -15,7 +15,6 @@ import rq_dashboard
 from rq_dashboard.cli import add_basic_auth
 import redis_lock
 import dropbox
-from gunicorn.app.base import BaseApplication
 
 from kamera.task import Task
 from kamera import config
@@ -168,18 +167,3 @@ def dbx_list_entries(
             result = dbx.files_list_folder_continue(result.cursor)
         else:
             break
-
-
-class StandaloneApplication(BaseApplication):
-    def __init__(self, app, options=None):
-        self.options = options if options is not None else {}
-        self.application = app
-        super(StandaloneApplication, self).__init__()
-
-    def load_config(self):
-        for key, value in self.options.items():
-            if key in self.cfg.settings and value is not None:
-                self.cfg.set(key.lower(), value)
-
-    def load(self):
-        return self.application
