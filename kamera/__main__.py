@@ -37,12 +37,12 @@ def main(mode: str) -> None:
         parser.add_argument("--debug", "-d", action="store_true")
         parser.add_argument("--bind", "-b", default="0.0.0.0")
         parser.add_argument("--workers", "-w", default=3)
-        parser.add_argument("--port", "-p", default=":5001")
+        parser.add_argument("--port", "-p")
         args = parser.parse_args()
 
         if args.mode == "server":
             if args.debug is False:
-                options = {"bind": "%s%s" % (args.bind, args.port), "workers": args.workers}
+                options = {"bind": "%s:%s" % (args.bind, args.port), "workers": args.workers}
                 gunicorn_app = StandaloneApplication(app, options)
                 gunicorn_app.run()
             elif args.debug is True:
