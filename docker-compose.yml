@@ -33,7 +33,7 @@ services:
     volumes:
       - ./redis-data:/data
     restart: always
-    entrypoint: redis-server --appendonly yes
+    entrypoint: redis-server
     networks:
       - kamera_network
 
