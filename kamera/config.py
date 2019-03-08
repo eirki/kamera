@@ -5,9 +5,7 @@ from collections import defaultdict
 from pathlib import Path
 from io import BytesIO
 import json
-import asyncio
 from typing import NamedTuple
-import functools
 import dropbox
 
 import yaml
@@ -128,14 +126,10 @@ def _load_recognition_data(dbx: Dropbox) -> Dict[str, List[np.array]]:
 
     people: Dict[str, List[np.array]] = defaultdict(list)
 
-    loop = asyncio.new_event_loop()
-
     paths = {Path(entry.path_display) for entry in result.entries}
     json_files = {path for path in paths if path.suffix == ".json"}
-    json_tasks = [
-        loop.create_task(_load_encoding_json(file, dbx, people, loop))
-        for file in json_files
-    ]
+    for file in json_files:
+        _load_encoding_json(file, dbx, people)
 
     unencoded_imgs = {
         path
@@ -145,39 +139,33 @@ def _load_recognition_data(dbx: Dropbox) -> Dict[str, List[np.array]]:
             and path.with_suffix(".json") not in json_files
         )
     }
-    img_tasks = [
-        loop.create_task(_load_encoding_img(file, dbx, people, loop))
-        for file in unencoded_imgs
-    ]
-    loop.run_until_complete(asyncio.wait(json_tasks + img_tasks))
-    loop.close()
+    for file in unencoded_imgs:
+        _load_encoding_img(file, dbx, people)
     return people
 
 
-async def _load_encoding_json(
-    file: Path, dbx: Dropbox, people: Dict[str, List], loop: asyncio.AbstractEventLoop
+def _load_encoding_json(
+    file: Path, dbx: Dropbox, people: Dict[str, List]
 ) -> None:
     name = file.parents[0].name
-    _, response = await loop.run_in_executor(None, dbx.files_download, file.as_posix())
+    _, response = dbx.files_download(file.as_posix())
     encoding = np.array(json.loads(response.raw.data))
     people[name].append(encoding)
 
 
-async def _load_encoding_img(
-    img: Path, dbx: Dropbox, people: Dict[str, List], loop: asyncio.AbstractEventLoop
+def _load_encoding_img(
+    img: Path, dbx: Dropbox, people: Dict[str, List]
 ) -> None:
     name = img.parents[0].name
-    _, response = await loop.run_in_executor(None, dbx.files_download, img.as_posix())
+    _, response = dbx.files_download(img.as_posix())
     encoding = _get_facial_encoding(response, img)
     if encoding is None:
         return
     json_encoded = json.dumps(encoding.tolist())
-    upload_func = functools.partial(
-        dbx.files_upload,
+    dbx.files_upload(
         f=json_encoded.encode(),
         path=img.with_suffix(".json").as_posix(),
     )
-    await loop.run_in_executor(None, upload_func)
     people[name].append(encoding)
 
 
