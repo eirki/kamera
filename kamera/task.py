@@ -99,9 +99,12 @@ class Task:
     def process_entry(self) -> None:
         start_time = dt.datetime.now()
         log.info(f"{self.name}: Processing")
-        Task.connect_redis(self.account_id)
-        dbx = Task.load_dbx_from_cache(self.account_id)
-        settings = Task.load_settings_from_cache(self.account_id, dbx)
+        try:
+            Task.connect_redis(self.account_id)
+            dbx = Task.load_dbx_from_cache(self.account_id)
+            settings = Task.load_settings_from_cache(self.account_id, dbx)
+        except Exception:
+            log.exception(f"Exception occured during task setup")
         try:
             date = parse_date(
                 self.time_taken,
