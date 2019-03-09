@@ -70,7 +70,11 @@ class Task:
         log.debug(cls.dbx_cache)
         log.debug(cls.settings_cache)
         if cls.redis_client is None:
-            cls.redis_client = redis.from_url(config.redis_url)
+            cls.redis_client = redis.Redis(
+                host=config.redis_host,
+                port=config.redis_port,
+                password=config.redis_password,
+            )
 
     @classmethod
     def load_dbx_from_cache(cls, account_id: str) -> dropbox.Dropbox:

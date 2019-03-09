@@ -25,7 +25,9 @@ from typing import Optional, Generator, Tuple, Set
 app = Flask(__name__)
 
 
-redis_client = redis.from_url(config.redis_url)
+redis_client = redis.Redis(
+    host=config.redis_host, port=config.redis_port, password=config.redis_password
+)
 queue = rq.Queue(connection=redis_client)
 running_jobs_registry = rq.registry.StartedJobRegistry(connection=redis_client)
 
@@ -33,13 +35,19 @@ running_jobs_registry = rq.registry.StartedJobRegistry(connection=redis_client)
 def get_redis_client():
     redis_client = getattr(g, "_redis_client", None)
     if redis_client is None:
-        redis_client = redis.from_url(config.redis_url)
+        redis_client = redis.Redis(
+            host=config.redis_host,
+            port=config.redis_port,
+            password=config.redis_password,
+        )
         g._redis_client = redis_client
     return redis_client
 
 
 app.config.from_object(rq_dashboard.default_settings)
-app.config["REDIS_URL"] = config.redis_url
+app.config["REDIS_HOST"] = config.redis_host
+app.config["REDIS_PORT"] = config.redis_port
+app.config["REDIS_PASSWORD"] = config.redis_password
 add_basic_auth(
     rq_dashboard.blueprint, config.rq_dashboard_username, config.rq_dashboard_password
 )

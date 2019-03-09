@@ -29,7 +29,9 @@ app_id = os.environ["app_id"]
 
 flask_rate_limit = int(os.environ["flask_rate_limit"])
 
-redis_url = f'redis://{os.environ["REDIS_HOST"]}:{os.environ["REDIS_PORT"]}'
+redis_host = os.environ["REDIS_HOST"]
+redis_port = os.environ["REDIS_PORT"]
+redis_password = os.environ["REDIS_PASSWORD"]
 
 APP_SECRET = os.environ["APP_SECRET"].encode()
 
