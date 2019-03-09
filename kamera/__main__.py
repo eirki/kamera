@@ -18,7 +18,7 @@ class StandaloneApplication(BaseApplication):
     def __init__(self, app, options=None):
         self.options = options if options is not None else {}
         self.application = app
-        super(StandaloneApplication, self).__init__()
+        super().__init__()
 
     def load_config(self):
         for key, value in self.options.items():
