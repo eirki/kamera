@@ -11,7 +11,8 @@ from gunicorn.app.base import BaseApplication
 
 from kamera.task import Task
 from kamera import config
-from kamera.server import app, redis_client, queue, dbx_list_entries
+# from kamera.server import app, redis_client, queue, dbx_list_entries
+from kamera import server
 
 
 class StandaloneApplication(BaseApplication):
@@ -43,19 +44,19 @@ def main(mode: str) -> None:
         if args.mode == "server":
             if args.debug is False:
                 options = {"bind": "%s:%s" % (args.bind, args.port), "workers": args.workers}
-                gunicorn_app = StandaloneApplication(app, options)
+                gunicorn_app = StandaloneApplication(server.app, options)
                 gunicorn_app.run()
             elif args.debug is True:
-                app.run()
+                server.app.run()
         elif args.mode == "worker":
-            with rq.Connection(redis_client):
-                worker = rq.SimpleWorker(queues=[queue])
+            with rq.Connection(server.redis_client):
+                worker = rq.SimpleWorker(queues=[server.queue])
                 worker.work()
         elif args.mode == "run_once":
             account_id = sys.argv[2]
-            dbx = dropbox.Dropbox(config.get_dbx_token(redis_client, account_id))
+            dbx = dropbox.Dropbox(config.get_dbx_token(server.redis_client, account_id))
             Task.dbx_cache[account_id] = dbx
-            for entry, metadata in dbx_list_entries(dbx, config.uploads_path):
+            for entry, metadata in server.dbx_list_entries(dbx, config.uploads_path):
                 task = Task(
                     account_id,
                     entry,

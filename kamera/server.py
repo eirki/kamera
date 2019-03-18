@@ -59,7 +59,7 @@ def set_time_of_request(account_id: str):
     get_redis_client().hset(f"user:{account_id}", "last_request_at", now.timestamp())
 
 
-def time_since_last_request_greater_than_limit(account_id: str) -> bool:
+def is_rate_limit_exceeded(account_id: str) -> bool:
     timestamp = get_redis_client().hget(f"user:{account_id}", "last_request_at")
     if timestamp is None:
         return True
@@ -84,9 +84,9 @@ def verify() -> str:
 
 @app.route("/queued/<account_id>", methods=["GET"])
 def get_n_queued(account_id: str) -> str:
-    queued_and_running_jobs = get_queued_and_running_jobs()
+    all_jobs = get_queued_and_running_jobs()
     account_jobs = [
-        job_id for job_id in queued_and_running_jobs if job_id.startswith(account_id)
+        job_id for job_id in all_jobs if job_id.startswith(account_id)
     ]
     n_queued = len(account_jobs)
     return str(n_queued)
@@ -99,9 +99,9 @@ def get_queued_and_running_jobs() -> Set[str]:
     return queued_and_running_jobs
 
 
-def check_enqueue_entries(account_id: str):
+def enqueue_new_entries(account_id: str):
     queued_and_running_jobs = get_queued_and_running_jobs()
-    log.debug(queued_and_running_jobs)
+    log.debug(str(queued_and_running_jobs))
     token = config.get_dbx_token(get_redis_client(), account_id)
     dbx = dropbox.Dropbox(token)
     for entry, metadata in dbx_list_entries(dbx, config.uploads_path):
@@ -130,7 +130,7 @@ def webhook() -> str:
 
     accounts = json.loads(request.data)["list_folder"]["accounts"]
     for account_id in accounts:
-        if not time_since_last_request_greater_than_limit(account_id):
+        if not is_rate_limit_exceeded(account_id):
             log.info(f"rate limit exceeded: {account_id}")
             continue
         lock = redis_lock.Lock(get_redis_client(), name=account_id, expire=60)
@@ -138,7 +138,7 @@ def webhook() -> str:
             log.info(f"User request already being processed: {account_id}")
             continue
         try:
-            check_enqueue_entries(account_id)
+            enqueue_new_entries(account_id)
         except Exception:
             log.exception(f"Exception occured, when handling request: {account_id}")
         finally:
