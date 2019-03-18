@@ -7,6 +7,10 @@ import datetime as dt
 import typing as t
 import dropbox
 from types import SimpleNamespace
+import shutil
+import os
+
+from PIL import Image
 
 
 class MockDropbox:
@@ -47,5 +51,50 @@ class MockDropbox:
         return filemetadata, response
 
     def files_upload(self, f: bytes, path: str, autorename: t.Optional[bool] = False):
+        if not Path(path).parent.exists():
+            raise dropbox.exceptions.BadInputError(request_id=1, message="message")
         with open(path, "wb") as file:
             file.write(f)
+
+
+    def files_move(
+        self, from_path: str, to_path: str, autorename: t.Optional[bool] = False
+    ) -> None:
+        if not Path(from_path).parent.exists() or not Path(to_path).parent.exists():
+            raise dropbox.exceptions.BadInputError(request_id=1, message="message")
+        shutil.move(from_path, Path(to_path).parent)
+
+    def files_copy(
+        self, from_path: str, to_path: str, autorename: t.Optional[bool] = False
+    ) -> None:
+        if not Path(from_path).parent.exists() or not Path(to_path).parent.exists():
+            raise dropbox.exceptions.BadInputError(request_id=1, message="message")
+        shutil.copy(from_path, to_path)
+
+    def files_create_folder(self, path, autorename=False) -> None:
+        os.makedirs(path)
+
+    def files_get_metadata(self, file_path, include_media_info=False):
+        try:
+            img = Image.open(file_path)
+        except FileNotFoundError:
+            raise dropbox.exceptions.ApiError(
+                "request_id", "error", "user_message_text", "user_message_locale"
+            )
+        metadata = dropbox.files.PhotoMetadata(
+            dimensions=dropbox.files.Dimensions(width=img.width, height=img.height),
+            location=None,
+            time_taken=None,
+        )
+        media_info = dropbox.files.MediaInfo.metadata(metadata)
+
+        mock_entry = dropbox.files.FileMetadata(
+            name=Path(file_path).name,
+            path_display=file_path,
+            path_lower=file_path.lower(),
+            media_info=media_info,
+        )
+        return mock_entry
+
+    def files_delete(self, path):
+        os.remove(path)

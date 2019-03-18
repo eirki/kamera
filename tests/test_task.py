@@ -5,11 +5,10 @@ from kamera.logger import log
 import os
 import datetime as dt
 from pathlib import Path
-from types import SimpleNamespace
-import shutil
 from io import BytesIO
 import fakeredis
-
+from unittest.mock import Mock, patch
+from collections import defaultdict
 import dropbox
 import pytest
 import pytz
@@ -17,12 +16,16 @@ from PIL import Image
 
 from kamera import config
 from kamera.task import Task
+from tests.mock_dropbox import MockDropbox
 
 from typing import Optional, Dict
 
 
 default_client_modified = dt.datetime(2000, 1, 1, 10, 30)
 date_fmt = "%Y-%m-%d %H.%M.%S"
+
+
+redis_servers: Dict[str, fakeredis.FakeServer] = defaultdict(fakeredis.FakeServer)
 
 
 def make_image(
@@ -65,7 +68,8 @@ def run_task_process_entry(
     )
     Task.dbx_cache[account_id] = MockDropbox()
     Task.settings_cache[account_id] = MockSettings(account_id)  # type: ignore
-    Task.redis_client = fakeredis.FakeStrictRedis()
+    redis_state = redis_servers[test_name]
+    Task.redis_client = fakeredis.FakeStrictRedis(server=redis_state)
 
     task = Task(
         account_id=account_id,
@@ -345,28 +349,29 @@ def test_settings_caching(tmpdir, settings, monkeypatch) -> None:
     assert account_id not in Task.dbx_cache
     assert account_id not in Task.settings_cache
 
-    dbx1 = Task.load_dbx_from_cache(task1.account_id)
-    settings1 = task1.load_settings_from_cache(task1.account_id, dbx1)
+    with patch("kamera.task.Task.redis_client", fake_redis_client):
+        dbx1 = Task.load_dbx_from_cache(task1.account_id)
+        settings1 = task1.load_settings_from_cache(task1.account_id, dbx1)
 
-    assert account_id in Task.dbx_cache
-    assert account_id in Task.settings_cache
+        assert account_id in Task.dbx_cache
+        assert account_id in Task.settings_cache
 
-    in_file2 = root_dir / "Uploads" / "in_file2.jpg"
-    dbx_entry2 = dropbox.files.FileMetadata(
-        path_display=in_file2.as_posix(), client_modified=default_client_modified
-    )
-    task2 = Task(
-        account_id=account_id,
-        entry=dbx_entry2,
-        metadata=None,
-        review_dir=root_dir / "Review",
-        backup_dir=root_dir / "Backup",
-        error_dir=root_dir / "Error",
-    )
-    dbx2 = Task.load_dbx_from_cache(task2.account_id)
-    settings2 = task2.load_settings_from_cache(task2.account_id, dbx2)
-    assert id(dbx1) == id(dbx2)
-    assert id(settings1) == id(settings2)
+        in_file2 = root_dir / "Uploads" / "in_file2.jpg"
+        dbx_entry2 = dropbox.files.FileMetadata(
+            path_display=in_file2.as_posix(), client_modified=default_client_modified
+        )
+        task2 = Task(
+            account_id=account_id,
+            entry=dbx_entry2,
+            metadata=None,
+            review_dir=root_dir / "Review",
+            backup_dir=root_dir / "Backup",
+            error_dir=root_dir / "Error",
+        )
+        dbx2 = Task.load_dbx_from_cache(task2.account_id)
+        settings2 = task2.load_settings_from_cache(task2.account_id, dbx2)
+        assert id(dbx1) == id(dbx2)
+        assert id(settings1) == id(settings2)
 
 
 @pytest.mark.parametrize("extension", config.image_extensions)
@@ -439,12 +444,12 @@ def test_duplicate_better(tmpdir, extension, monkeypatch, process_img) -> None:
     )
     assert error_contents == [], "No error during processing"
     assert uploads_contents == []
-    assert len(review_contents) == 3
-    assert len(backup_contents) == 4
     assert len(list((root_dir / "Review").rglob("*worse*"))) == 0
     assert len(list((root_dir / "Review").rglob("*better*"))) == 1
     assert len(list((root_dir / "Backup").rglob("*worse*"))) == 1
     assert len(list((root_dir / "Backup").rglob("*better*"))) == 1
+    assert len(review_contents) == 3
+    assert len(backup_contents) == 4
 
 
 def monkeypatch_img_processing(monkeypatch, return_new_data: bool) -> None:
@@ -468,69 +473,6 @@ def error_parse_date(monkeypatch):
         raise Exception("This is an excpetion from mock parse_date")
 
     monkeypatch.setattr("kamera.task.parse_date", error_parse_date_mock)
-
-
-class MockDropbox:
-    def __init__(*args, **kwargs):
-        pass
-
-    def users_get_current_account(self):
-        pass
-
-    def files_download(self, path: Path):
-        with open(path, "rb") as file:
-            data = file.read()
-        filemetadata = None
-        response = SimpleNamespace(raw=SimpleNamespace(data=data))
-        return filemetadata, response
-
-    def files_upload(self, f: bytes, path: str, autorename: Optional[bool] = False):
-        if not Path(path).parent.exists():
-            raise dropbox.exceptions.BadInputError(request_id=1, message="message")
-        with open(path, "wb") as file:
-            file.write(f)
-
-    def files_move(
-        self, from_path: str, to_path: str, autorename: Optional[bool] = False
-    ) -> None:
-        if not Path(from_path).parent.exists() or not Path(to_path).parent.exists():
-            raise dropbox.exceptions.BadInputError(request_id=1, message="message")
-        shutil.move(from_path, Path(to_path).parent)
-
-    def files_copy(
-        self, from_path: str, to_path: str, autorename: Optional[bool] = False
-    ) -> None:
-        if not Path(from_path).parent.exists() or not Path(to_path).parent.exists():
-            raise dropbox.exceptions.BadInputError(request_id=1, message="message")
-        shutil.copy(from_path, to_path)
-
-    def files_create_folder(self, path, autorename=False) -> None:
-        os.makedirs(path)
-
-    def files_get_metadata(self, file_path, include_media_info=False):
-        try:
-            img = Image.open(file_path)
-        except FileNotFoundError:
-            raise dropbox.exceptions.ApiError(
-                "request_id", "error", "user_message_text", "user_message_locale"
-            )
-        metadata = dropbox.files.PhotoMetadata(
-            dimensions=dropbox.files.Dimensions(width=img.width, height=img.height),
-            location=None,
-            time_taken=None,
-        )
-        media_info = dropbox.files.MediaInfo.metadata(metadata)
-
-        mock_entry = dropbox.files.FileMetadata(
-            name=Path(file_path).name,
-            path_display=file_path,
-            path_lower=file_path.lower(),
-            media_info=media_info,
-        )
-        return mock_entry
-
-    def files_delete(self, path):
-        os.remove(path)
 
 
 class MockSettings:

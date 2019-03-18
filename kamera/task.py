@@ -65,7 +65,7 @@ class Task:
         return repr(self.name)
 
     @classmethod
-    def connect_redis(cls, account_id: str) -> None:
+    def connect_redis(cls) -> None:
         log.debug(cls.dbx_cache)
         log.debug(cls.settings_cache)
         if cls.redis_client is None:
@@ -103,7 +103,7 @@ class Task:
         start_time = dt.datetime.now()
         log.info(f"{self.name}: Processing")
         try:
-            Task.connect_redis(self.account_id)
+            Task.connect_redis()
             dbx = Task.load_dbx_from_cache(self.account_id)
             settings = Task.load_settings_from_cache(self.account_id, dbx)
         except Exception:
