@@ -30,7 +30,7 @@ class StandaloneApplication(BaseApplication):
         return self.application
 
 
-def main(mode: str) -> None:
+def main() -> None:
     try:
         log.info("Starting kamera")
         parser = argparse.ArgumentParser()
@@ -72,4 +72,4 @@ def main(mode: str) -> None:
 
 
 if __name__ == "__main__":
-    main(sys.argv[1])
+    main()
