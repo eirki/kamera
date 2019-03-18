@@ -31,19 +31,6 @@ redis_client = redis.Redis(
 queue = rq.Queue(connection=redis_client)
 running_jobs_registry = rq.registry.StartedJobRegistry(connection=redis_client)
 
-
-def get_redis_client():
-    redis_client = getattr(g, "_redis_client", None)
-    if redis_client is None:
-        redis_client = redis.Redis(
-            host=config.redis_host,
-            port=config.redis_port,
-            password=config.redis_password,
-        )
-        g._redis_client = redis_client
-    return redis_client
-
-
 app.config.from_object(rq_dashboard.default_settings)
 app.config["REDIS_HOST"] = config.redis_host
 app.config["REDIS_PORT"] = config.redis_port
@@ -56,11 +43,11 @@ app.register_blueprint(rq_dashboard.blueprint, url_prefix="/rq")
 
 def set_time_of_request(account_id: str):
     now = dt.datetime.utcnow()
-    get_redis_client().hset(f"user:{account_id}", "last_request_at", now.timestamp())
+    redis_client.hset(f"user:{account_id}", "last_request_at", now.timestamp())
 
 
 def is_rate_limit_exceeded(account_id: str) -> bool:
-    timestamp = get_redis_client().hget(f"user:{account_id}", "last_request_at")
+    timestamp = redis_client.hget(f"user:{account_id}", "last_request_at")
     if timestamp is None:
         return True
     last_request_at = dt.datetime.fromtimestamp(float(timestamp))
@@ -77,32 +64,31 @@ def hello_world() -> str:
 
 @app.route("/webhook", methods=["GET"])
 def verify() -> str:
-    """Respond to the webhook verification (GET request) by echoing back the challenge parameter."""
+    """Respond to the webhook verification (GET request)."""
 
     return request.args.get("challenge")
 
 
 @app.route("/queued/<account_id>", methods=["GET"])
 def get_n_queued(account_id: str) -> str:
-    all_jobs = get_queued_and_running_jobs()
-    account_jobs = [
-        job_id for job_id in all_jobs if job_id.startswith(account_id)
-    ]
-    n_queued = len(account_jobs)
-    return str(n_queued)
+    jobs = get_queued_and_running_jobs(account_id)
+    n_jobs = len(jobs)
+    return str(n_jobs)
 
 
-def get_queued_and_running_jobs() -> Set[str]:
-    queued_and_running_jobs = set(queue.job_ids) | set(
-        running_jobs_registry.get_job_ids()
+def get_queued_and_running_jobs(account_id: str) -> Set[str]:
+    queued_and_running_jobs = set(
+        job_id
+        for job_id in (queue.job_ids + running_jobs_registry.get_job_ids())
+        if job_id.startswith(account_id)
     )
     return queued_and_running_jobs
 
 
 def enqueue_new_entries(account_id: str):
-    queued_and_running_jobs = get_queued_and_running_jobs()
+    queued_and_running_jobs = get_queued_and_running_jobs(account_id)
     log.debug(str(queued_and_running_jobs))
-    token = config.get_dbx_token(get_redis_client(), account_id)
+    token = config.get_dbx_token(redis_client, account_id)
     dbx = dropbox.Dropbox(token)
     for entry, metadata in dbx_list_entries(dbx, config.uploads_path):
         job_id = f"{account_id}:{entry.name}"
@@ -133,7 +119,7 @@ def webhook() -> str:
         if not is_rate_limit_exceeded(account_id):
             log.info(f"rate limit exceeded: {account_id}")
             continue
-        lock = redis_lock.Lock(get_redis_client(), name=account_id, expire=60)
+        lock = redis_lock.Lock(redis_client, name=account_id, expire=60)
         if not lock.acquire(blocking=False):
             log.info(f"User request already being processed: {account_id}")
             continue
