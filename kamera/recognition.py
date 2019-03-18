@@ -56,21 +56,21 @@ def _get_best_match_for_each_face(all_facial_matches: List[List[Match]]) -> List
         all_facial_matches: list of list of matches
 
     Returns
-        recognized_people: list of names, one name for each list of match_lists
+        best_matches: list of names, one name for each list of match_lists
     """
-    recognized_people = []
+    best_matches = []
     while any(all_facial_matches):
         all_facial_matches.sort()
         matches_for_pic_with_best_match = all_facial_matches.pop(0)
         best_match = matches_for_pic_with_best_match[0]
-        recognized_people.append(best_match.name)
+        best_matches.append(best_match.name)
 
         # filter out recognized person from remaining matches
         all_facial_matches = [
             [match for match in matchlist if match.name != best_match.name]
             for matchlist in all_facial_matches
         ]
-    return recognized_people
+    return best_matches
 
 
 def recognize_face(img_data: bytes, settings: config.Settings) -> List[str]:

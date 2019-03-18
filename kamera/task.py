@@ -6,7 +6,6 @@ from pathlib import Path
 import datetime as dt
 from functools import partial
 from io import BytesIO
-import re
 
 import pytz
 from timezonefinderL import TimezoneFinder
