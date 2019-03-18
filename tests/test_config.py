@@ -2,15 +2,12 @@
 # coding: utf-8
 from kamera.logger import log
 
-from pathlib import Path
-from types import SimpleNamespace
-import dropbox
 import numpy as np
 import pytest
 
 from kamera import config
+from tests.mock_dropbox import MockDropbox
 
-from typing import Optional
 
 try:
     import face_recognition
@@ -79,30 +76,3 @@ def settings():
     dbx = MockDropbox()
     loaded_settings = config.Settings(dbx)
     return loaded_settings
-
-
-class MockDropbox:
-    def files_download(self, path: Path):
-        with open(path, "rb") as file:
-            data = file.read()
-        filemetadata = None
-        response = SimpleNamespace(raw=SimpleNamespace(data=data))
-        return filemetadata, response
-
-    def files_list_folder(
-        self,
-        path: str,
-        recursive: Optional[bool] = False,
-        include_media_info: Optional[bool] = False,
-    ):
-        path_obj = Path(path)
-        files = path_obj.rglob("*") if recursive else path_obj.iterdir()
-        mock_entries = [
-            dropbox.files.FileMetadata(path_display=file.as_posix()) for file in files
-        ]
-        mock_result = SimpleNamespace(entries=mock_entries, has_more=False)
-        return mock_result
-
-    def files_upload(self, f: bytes, path: str, autorename: Optional[bool] = False):
-        with open(path, "wb") as file:
-            file.write(f)
