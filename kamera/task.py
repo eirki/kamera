@@ -104,7 +104,7 @@ class Task:
             dbx = Task.load_dbx_from_cache(self.account_id, redis_client)
             settings = Task.load_settings_from_cache(self.account_id, dbx)
         except Exception:
-            log.exception(f"Exception occured during task setup")
+            log.exception("Exception occured during task setup")
             return
         self.process_entry(redis_client, dbx, settings)
 
