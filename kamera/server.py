@@ -8,7 +8,7 @@ import json
 import datetime as dt
 from pathlib import Path
 
-from flask import Flask, request, abort, g
+from flask import Flask, request, abort
 import redis
 import rq
 import rq_dashboard
@@ -31,7 +31,7 @@ redis_client = redis.Redis(
 queue = rq.Queue(connection=redis_client)
 running_jobs_registry = rq.registry.StartedJobRegistry(connection=redis_client)
 
-app.config.from_object(rq_dashboard.default_settings)
+app.config.from_object(rq_dashboard.default_settings)  # type: ignore
 app.config["REDIS_HOST"] = config.redis_host
 app.config["REDIS_PORT"] = config.redis_port
 app.config["REDIS_PASSWORD"] = config.redis_password
@@ -66,7 +66,7 @@ def hello_world() -> str:
 def verify() -> str:
     """Respond to the webhook verification (GET request)."""
 
-    return request.args.get("challenge")
+    return request.args.get("challenge", "")
 
 
 @app.route("/queued/<account_id>", methods=["GET"])
@@ -103,13 +103,13 @@ def enqueue_new_entries(account_id: str):
             config.backup_path,
             config.errors_path,
         )
-        queue.enqueue(task.process_entry, result_ttl=600, job_id=job_id)
+        queue.enqueue(task.main, result_ttl=600, job_id=job_id)
 
 
 @app.route("/webhook", methods=["POST"])
 def webhook() -> str:
     log.info("request incoming")
-    signature = request.headers.get("X-Dropbox-Signature")
+    signature = request.headers.get("X-Dropbox-Signature", "")
     digest = hmac.new(config.APP_SECRET, request.data, sha256).hexdigest()
     if not hmac.compare_digest(signature, digest):
         abort(403)

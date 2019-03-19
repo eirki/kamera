@@ -66,23 +66,23 @@ class Task:
 
     @classmethod
     def connect_redis(cls) -> None:
-        log.debug(cls.dbx_cache)
-        log.debug(cls.settings_cache)
         if cls.redis_client is None:
             cls.redis_client = redis.Redis(
                 host=config.redis_host,
                 port=config.redis_port,
                 password=config.redis_password,
             )
+        return cls.redis_client
 
     @classmethod
-    def load_dbx_from_cache(cls, account_id: str) -> dropbox.Dropbox:
+    def load_dbx_from_cache(
+        cls, account_id: str, redis_client: redis.Redis
+    ) -> dropbox.Dropbox:
         try:
             dbx = cls.dbx_cache[account_id]
         except KeyError:
-            dbx = dropbox.Dropbox(config.get_dbx_token(cls.redis_client, account_id))
+            dbx = dropbox.Dropbox(config.get_dbx_token(redis_client, account_id))
             cls.dbx_cache[account_id] = dbx
-        log.debug(cls.dbx_cache)
         return dbx
 
     @classmethod
@@ -96,19 +96,23 @@ class Task:
             settings = config.Settings(dbx)
             cls.settings_cache[account_id] = settings
             log.debug("Settings loaded from dbx")
-        log.debug(cls.settings_cache)
         return settings
 
-    def process_entry(self) -> None:
-        start_time = dt.datetime.now()
-        log.info(f"{self.name}: Processing")
+    def main(self):
         try:
-            Task.connect_redis()
-            dbx = Task.load_dbx_from_cache(self.account_id)
+            redis_client = Task.connect_redis()
+            dbx = Task.load_dbx_from_cache(self.account_id, redis_client)
             settings = Task.load_settings_from_cache(self.account_id, dbx)
         except Exception:
             log.exception(f"Exception occured during task setup")
             return
+        self.process_entry(redis_client, dbx, settings)
+
+    def process_entry(
+        self, redis_client: redis.Redis, dbx: dropbox.Dropbox, settings: config.Settings
+    ) -> None:
+        start_time = dt.datetime.now()
+        log.info(f"{self.name}: Processing")
         try:
             date = parse_date(
                 self.time_taken,
@@ -136,7 +140,7 @@ class Task:
                 account_id_and_img_hash=f"user:{self.account_id}, hash:{img_hash}",
                 file_path=review_path,
                 dbx=dbx,
-                redis_client=self.redis_client,
+                redis_client=redis_client,
                 dimensions=self.dimensions,
             )
 

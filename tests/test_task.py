@@ -1,13 +1,10 @@
 #! /usr/bin/env python3.6
 # coding: utf-8
-from kamera.logger import log
-
 import os
 import datetime as dt
 from pathlib import Path
 from io import BytesIO
 import fakeredis
-from unittest.mock import Mock, patch
 from collections import defaultdict
 import dropbox
 import pytest
@@ -66,11 +63,6 @@ def run_task_process_entry(
     dbx_entry = dropbox.files.FileMetadata(
         path_display=in_file.as_posix(), client_modified=default_client_modified
     )
-    Task.dbx_cache[account_id] = MockDropbox()
-    Task.settings_cache[account_id] = MockSettings(account_id)  # type: ignore
-    redis_state = redis_servers[test_name]
-    Task.redis_client = fakeredis.FakeStrictRedis(server=redis_state)
-
     task = Task(
         account_id=account_id,
         entry=dbx_entry,
@@ -79,45 +71,45 @@ def run_task_process_entry(
         backup_dir=root_dir / "Backup",
         error_dir=root_dir / "Error",
     )
-    task.process_entry()
+    redis_state = redis_servers[test_name]
+    fake_redis_client = fakeredis.FakeStrictRedis(server=redis_state)
+    fake_dbx = MockDropbox()
+    fake_settings = MockSettings(account_id)
+    task.process_entry(
+        redis_client=fake_redis_client, dbx=fake_dbx, settings=fake_settings
+    )
 
 
 def _get_folder_contents(root_dir: Path):
-    uploads_contents = list((root_dir / "Uploads").rglob("*"))
-    review_contents = list((root_dir / "Review").rglob("*"))
-    backup_contents = list((root_dir / "Backup").rglob("*"))
-    error_contents = list((root_dir / "Error").rglob("*"))
-    return uploads_contents, review_contents, backup_contents, error_contents
+    uploads = list((root_dir / "Uploads").rglob("*"))
+    review = list((root_dir / "Review").rglob("*"))
+    backup = list((root_dir / "Backup").rglob("*"))
+    error = list((root_dir / "Error").rglob("*"))
+    return uploads, review, backup, error
 
 
 def assert_file_not_moved(root_dir: Path) -> None:
-    uploads_contents, review_contents, backup_contents, error_contents = _get_folder_contents(
-        root_dir
-    )
-    assert error_contents == [], "No error during processing"
-    assert len(uploads_contents) == 1
-    assert review_contents == []
-    assert backup_contents == []
+    uploads, review, backup, error = _get_folder_contents(root_dir)
+    assert error == [], "No error during processing"
+    assert len(uploads) == 1
+    assert review == []
+    assert backup == []
 
 
 def assert_file_moved_to_review_and_backup(root_dir: Path) -> None:
-    uploads_contents, review_contents, backup_contents, error_contents = _get_folder_contents(
-        root_dir
-    )
-    assert error_contents == [], "No error during processing"
-    assert uploads_contents == []
-    assert len(review_contents) == 3
-    assert len(backup_contents) == 3
+    uploads, review, backup, error = _get_folder_contents(root_dir)
+    assert error == [], "No error during processing"
+    assert uploads == []
+    assert len(review) == 3
+    assert len(backup) == 3
 
 
 def assert_file_moved_to_error(root_dir: Path) -> None:
-    uploads_contents, review_contents, backup_contents, error_contents = _get_folder_contents(
-        root_dir
-    )
-    assert len(error_contents) == 1
-    assert uploads_contents == []
-    assert review_contents == []
-    assert backup_contents == []
+    uploads, review, backup, error = _get_folder_contents(root_dir)
+    assert len(error) == 1
+    assert uploads == []
+    assert review == []
+    assert backup == []
 
 
 def assert_contents_changed(root_dir: Path, subfolder: str) -> None:
@@ -209,9 +201,11 @@ def test_unsupported_ext(tmpdir, monkeypatch, process_img) -> None:
 def test_client_modified_date_used(
     tmpdir, settings, extension, monkeypatch, process_img
 ) -> None:
-    """datetime sent to image_processing (default_client_modified) is timezone-naive 01.01.2000 00:00
-    this should be assumed to be utc. tests default timezone is "US/Eastern" (utc-05:00).
-    client_modified_local should be 12.31.1999 19:00, folders created should be 1999 and 12
+    """datetime sent to image_processing (default_client_modified)
+    is timezone-naive 01.01.2000 00:00. this should be assumed to be utc.
+    tests default timezone is "US/Eastern" (utc-05:00).
+    client_modified_local should be 12.31.1999 19:00,
+    folders created should be 1999 and 12
      """
     root_dir = Path(tmpdir)
     make_all_temp_folders(root_dir)
@@ -237,9 +231,11 @@ def test_client_modified_date_used(
 def test_time_taken_date_used(
     tmpdir, settings, extension, monkeypatch, process_img
 ) -> None:
-    """datetime sent to image_processing (in_date_naive) is timezone-naive 01.01.2010 00:00
-    this should be assumed to be utc. tests default timezone is "US/Eastern" (utc-05:00).
-    client_modified_local should be 12.31.2009 19:00, folders created should be 2009 and 12
+    """datetime sent to image_processing (in_date_naive) is
+    timezone-naive 01.01.2010 00:00. this should be assumed to be utc.
+    tests default timezone is "US/Eastern" (utc-05:00).
+    client_modified_local should be 12.31.2009 19:00,
+    folders created should be 2009 and 12
      """
     root_dir = Path(tmpdir)
     make_all_temp_folders(root_dir)
@@ -269,9 +265,10 @@ def test_time_taken_date_used(
 def test_time_taken_date_used_with_location(
     tmpdir, settings, extension, monkeypatch, process_img
 ) -> None:
-    """datetime sent to image_processing (in_date_naive) is timezone-naive 12.31.2014 23:00,
-    with gps location in timezone "Europe/Paris"
-    time_taken should be assumed to be utc. tests default timezone is "US/Eastern" (utc-05:00).
+    """datetime sent to image_processing (in_date_naive) is
+    timezone-naive 12.31.2014 23:00, with gps location in timezone "Europe/Paris"
+    time_taken should be assumed to be utc. tests default timezone
+    is "US/Eastern" (utc-05:00).
     in_date_local should be 01.01.2015 00:00, folders created should be 2015 and 01
      """
     root_dir = Path(tmpdir)
@@ -349,29 +346,28 @@ def test_settings_caching(tmpdir, settings, monkeypatch) -> None:
     assert account_id not in Task.dbx_cache
     assert account_id not in Task.settings_cache
 
-    with patch("kamera.task.Task.redis_client", fake_redis_client):
-        dbx1 = Task.load_dbx_from_cache(task1.account_id)
-        settings1 = task1.load_settings_from_cache(task1.account_id, dbx1)
+    dbx1 = Task.load_dbx_from_cache(task1.account_id, fake_redis_client)
+    settings1 = task1.load_settings_from_cache(task1.account_id, dbx1)
 
-        assert account_id in Task.dbx_cache
-        assert account_id in Task.settings_cache
+    assert account_id in Task.dbx_cache
+    assert account_id in Task.settings_cache
 
-        in_file2 = root_dir / "Uploads" / "in_file2.jpg"
-        dbx_entry2 = dropbox.files.FileMetadata(
-            path_display=in_file2.as_posix(), client_modified=default_client_modified
-        )
-        task2 = Task(
-            account_id=account_id,
-            entry=dbx_entry2,
-            metadata=None,
-            review_dir=root_dir / "Review",
-            backup_dir=root_dir / "Backup",
-            error_dir=root_dir / "Error",
-        )
-        dbx2 = Task.load_dbx_from_cache(task2.account_id)
-        settings2 = task2.load_settings_from_cache(task2.account_id, dbx2)
-        assert id(dbx1) == id(dbx2)
-        assert id(settings1) == id(settings2)
+    in_file2 = root_dir / "Uploads" / "in_file2.jpg"
+    dbx_entry2 = dropbox.files.FileMetadata(
+        path_display=in_file2.as_posix(), client_modified=default_client_modified
+    )
+    task2 = Task(
+        account_id=account_id,
+        entry=dbx_entry2,
+        metadata=None,
+        review_dir=root_dir / "Review",
+        backup_dir=root_dir / "Backup",
+        error_dir=root_dir / "Error",
+    )
+    dbx2 = Task.load_dbx_from_cache(task2.account_id, fake_redis_client)
+    settings2 = task2.load_settings_from_cache(task2.account_id, dbx2)
+    assert id(dbx1) == id(dbx2)
+    assert id(settings1) == id(settings2)
 
 
 @pytest.mark.parametrize("extension", config.image_extensions)
@@ -400,13 +396,11 @@ def test_duplicate_worse(tmpdir, extension, monkeypatch, process_img) -> None:
         file_name="better",
         metadata=metadata,
     )
-    uploads_contents, review_contents, backup_contents, error_contents = _get_folder_contents(
-        root_dir
-    )
-    assert error_contents == [], "No error during processing"
-    assert uploads_contents == []
-    assert len(review_contents) == 3
-    assert len(backup_contents) == 4
+    uploads, review, backup, error = _get_folder_contents(root_dir)
+    assert error == [], "No error during processing"
+    assert uploads == []
+    assert len(review) == 3
+    assert len(backup) == 4
     assert len(list((root_dir / "Review").rglob("*worse*"))) == 0
     assert len(list((root_dir / "Review").rglob("*better*"))) == 1
     assert len(list((root_dir / "Backup").rglob("*worse*"))) == 1
@@ -439,17 +433,15 @@ def test_duplicate_better(tmpdir, extension, monkeypatch, process_img) -> None:
         file_name="worse",
         metadata=metadata,
     )
-    uploads_contents, review_contents, backup_contents, error_contents = _get_folder_contents(
-        root_dir
-    )
-    assert error_contents == [], "No error during processing"
-    assert uploads_contents == []
+    uploads, review, backup, error = _get_folder_contents(root_dir)
+    assert error == [], "No error during processing"
+    assert uploads == []
     assert len(list((root_dir / "Review").rglob("*worse*"))) == 0
     assert len(list((root_dir / "Review").rglob("*better*"))) == 1
     assert len(list((root_dir / "Backup").rglob("*worse*"))) == 1
     assert len(list((root_dir / "Backup").rglob("*better*"))) == 1
-    assert len(review_contents) == 3
-    assert len(backup_contents) == 4
+    assert len(review) == 3
+    assert len(backup) == 4
 
 
 def monkeypatch_img_processing(monkeypatch, return_new_data: bool) -> None:
@@ -475,7 +467,9 @@ def error_parse_date(monkeypatch):
     monkeypatch.setattr("kamera.task.parse_date", error_parse_date_mock)
 
 
-class MockSettings:
+class MockSettings(config.Settings):
+    "Subclasses settings but overrides only method, to satisfy mypy"
+
     def __init__(self, account_id):
         self.default_tz: str = "US/Eastern"
         self.folder_names: Dict[str, str] = {

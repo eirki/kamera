@@ -11,6 +11,7 @@ from gunicorn.app.base import BaseApplication
 
 from kamera.task import Task
 from kamera import config
+
 # from kamera.server import app, redis_client, queue, dbx_list_entries
 from kamera import server
 
@@ -43,7 +44,10 @@ def main() -> None:
 
         if args.mode == "server":
             if args.debug is False:
-                options = {"bind": "%s:%s" % (args.bind, args.port), "workers": args.workers}
+                options = {
+                    "bind": "%s:%s" % (args.bind, args.port),
+                    "workers": args.workers,
+                }
                 gunicorn_app = StandaloneApplication(server.app, options)
                 gunicorn_app.run()
             elif args.debug is True:
@@ -55,7 +59,7 @@ def main() -> None:
         elif args.mode == "run_once":
             account_id = sys.argv[2]
             dbx = dropbox.Dropbox(config.get_dbx_token(server.redis_client, account_id))
-            Task.dbx_cache[account_id] = dbx
+            settings = config.Settings(dbx)
             for entry, metadata in server.dbx_list_entries(dbx, config.uploads_path):
                 task = Task(
                     account_id,
@@ -65,9 +69,9 @@ def main() -> None:
                     config.backup_path,
                     config.errors_path,
                 )
-                task.process_entry()
-    except Exception as exc:
-        log.exception(exc)
+                task.process_entry(server.redis_client, dbx, settings)
+    except Exception:
+        log.exception("Exception in main loop")
         raise
 
 
