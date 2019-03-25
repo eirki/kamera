@@ -1,26 +1,20 @@
 #! /usr/bin/env python3.6
 # coding: utf-8
-import os
-from collections import defaultdict
-from pathlib import Path
-from io import BytesIO
 import json
-from typing import NamedTuple
-import dropbox
+import os
+import typing as t
+from collections import defaultdict
+from io import BytesIO
+from pathlib import Path
 
+import dropbox
+import face_recognition
+import numpy as np
 import yaml
 from dotenv import load_dotenv
-import numpy as np
-
-try:
-    import face_recognition
-except ImportError:
-    face_recognition = None
-
-from typing import List, Dict
 from dropbox import Dropbox
-from requests import Response
 from redis import Redis
+from requests import Response
 
 env_path = Path(".") / ".env"
 load_dotenv(dotenv_path=env_path)
@@ -56,9 +50,9 @@ class Settings:
         self.default_tz: str = settings_data["default_tz"]
         self.recognition_tolerance: float = settings_data["recognition_tolerance"]
         try:
-            self.folder_names: Dict[int, str] = settings_data["folder_names"]
+            self.folder_names: t.Dict[int, str] = settings_data["folder_names"]
         except KeyError:
-            self.folder_names: Dict[int, str] = {
+            self.folder_names: t.Dict[int, str] = {
                 1: "01",
                 2: "02",
                 3: "03",
@@ -73,17 +67,16 @@ class Settings:
                 12: "12",
             }
         try:
-            self.tag_swaps: Dict[str, str] = settings_data.pop("tag_swaps")
+            self.tag_swaps: t.Dict[str, str] = settings_data.pop("tag_swaps")
         except KeyError:
             self.tag_swaps = {}
         try:
             location_data = _load_location_data(dbx)
-            self.locations: List[Area] = location_data
+            self.locations: t.List[Area] = location_data
         except dropbox.exceptions.ApiError:
-            self.locations: List[Area] = []
-        if face_recognition is not None:
-            recognition_data = _load_recognition_data(dbx)
-            self.recognition_data: Dict[str, List[np.array]] = recognition_data
+            self.locations: t.List[Area] = []
+        recognition_data = _load_recognition_data(dbx)
+        self.recognition_data: t.Dict[str, t.List[np.array]] = recognition_data
 
 
 def _load_settings(dbx: Dropbox) -> dict:
@@ -93,20 +86,20 @@ def _load_settings(dbx: Dropbox) -> dict:
     return settings
 
 
-class Spot(NamedTuple):
+class Spot(t.NamedTuple):
     name: str
     lat: float
     lng: float
 
 
-class Area(NamedTuple):
+class Area(t.NamedTuple):
     name: str
     lat: float
     lng: float
-    spots: List[Spot]
+    spots: t.List[Spot]
 
 
-def _load_location_data(dbx: Dropbox) -> List[Area]:
+def _load_location_data(dbx: Dropbox) -> t.List[Area]:
     places_file = config_path / "places.yaml"
     _, response = dbx.files_download(places_file.as_posix())
     location_dict = yaml.safe_load(response.raw.data)
@@ -122,11 +115,11 @@ def _load_location_data(dbx: Dropbox) -> List[Area]:
     return areas
 
 
-def _load_recognition_data(dbx: Dropbox) -> Dict[str, List[np.array]]:
+def _load_recognition_data(dbx: Dropbox) -> t.Dict[str, t.List[np.array]]:
     recognition_path = config_path / "people"
     result = dbx.files_list_folder(path=recognition_path.as_posix(), recursive=True)
 
-    people: Dict[str, List[np.array]] = defaultdict(list)
+    people: t.Dict[str, t.List[np.array]] = defaultdict(list)
 
     paths = {Path(entry.path_display) for entry in result.entries}
     json_files = {path for path in paths if path.suffix == ".json"}
@@ -146,28 +139,21 @@ def _load_recognition_data(dbx: Dropbox) -> Dict[str, List[np.array]]:
     return people
 
 
-def _load_encoding_json(
-    file: Path, dbx: Dropbox, people: Dict[str, List]
-) -> None:
+def _load_encoding_json(file: Path, dbx: Dropbox, people: t.Dict[str, t.List]) -> None:
     name = file.parents[0].name
     _, response = dbx.files_download(file.as_posix())
     encoding = np.array(json.loads(response.raw.data))
     people[name].append(encoding)
 
 
-def _load_encoding_img(
-    img: Path, dbx: Dropbox, people: Dict[str, List]
-) -> None:
+def _load_encoding_img(img: Path, dbx: Dropbox, people: t.Dict[str, t.List]) -> None:
     name = img.parents[0].name
     _, response = dbx.files_download(img.as_posix())
     encoding = _get_facial_encoding(response, img)
     if encoding is None:
         return
     json_encoded = json.dumps(encoding.tolist())
-    dbx.files_upload(
-        f=json_encoded.encode(),
-        path=img.with_suffix(".json").as_posix(),
-    )
+    dbx.files_upload(f=json_encoded.encode(), path=img.with_suffix(".json").as_posix())
     people[name].append(encoding)
 
 

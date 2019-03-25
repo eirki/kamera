@@ -1,12 +1,14 @@
 #! /usr/bin/env python3.6
 # coding: utf-8
-import os
 import datetime as dt
-from pathlib import Path
-from io import BytesIO
-import fakeredis
+import os
+import typing as t
 from collections import defaultdict
+from io import BytesIO
+from pathlib import Path
+
 import dropbox
+import fakeredis
 import pytest
 import pytz
 from PIL import Image
@@ -15,18 +17,15 @@ from kamera import config
 from kamera.task import Task
 from tests.mock_dropbox import MockDropbox
 
-from typing import Optional, Dict
-
-
 default_client_modified = dt.datetime(2000, 1, 1, 10, 30)
 date_fmt = "%Y-%m-%d %H.%M.%S"
 
 
-redis_servers: Dict[str, fakeredis.FakeServer] = defaultdict(fakeredis.FakeServer)
+redis_servers: t.Dict[str, fakeredis.FakeServer] = defaultdict(fakeredis.FakeServer)
 
 
 def make_image(
-    changed: bool, dimensions: Optional[dropbox.files.Dimensions] = None
+    changed: bool, dimensions: t.Optional[dropbox.files.Dimensions] = None
 ) -> bytes:
     dimensions = (
         (dimensions.width, dimensions.height) if dimensions is not None else (100, 100)
@@ -49,8 +48,8 @@ def run_task_process_entry(
     test_name: str,
     ext: str,
     root_dir: Path,
-    file_name: Optional[str] = None,
-    metadata: Optional[dropbox.files.PhotoMetadata] = None,
+    file_name: t.Optional[str] = None,
+    metadata: t.Optional[dropbox.files.PhotoMetadata] = None,
 ) -> None:
     account_id = test_name
     stem = test_name if file_name is None else file_name
@@ -472,7 +471,7 @@ class MockSettings(config.Settings):
 
     def __init__(self, account_id):
         self.default_tz: str = "US/Eastern"
-        self.folder_names: Dict[str, str] = {
+        self.folder_names: t.Dict[str, str] = {
             1: "January",
             2: "February",
             3: "March",

@@ -1,15 +1,13 @@
 #! /usr/bin/env python3.6
 # coding: utf-8
-from kamera.logger import log
-
-from pathlib import Path
 import datetime as dt
-import typing as t
-import dropbox
-from types import SimpleNamespace
-import shutil
 import os
+import shutil
+import typing as t
+from pathlib import Path
+from types import SimpleNamespace
 
+import dropbox
 from PIL import Image
 
 
@@ -55,7 +53,6 @@ class MockDropbox:
             raise dropbox.exceptions.BadInputError(request_id=1, message="message")
         with open(path, "wb") as file:
             file.write(f)
-
 
     def files_move(
         self, from_path: str, to_path: str, autorename: t.Optional[bool] = False

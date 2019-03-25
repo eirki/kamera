@@ -1,26 +1,22 @@
 #! /usr/bin/env python3.6
 # coding: utf-8
-from kamera.logger import log
-
-from pathlib import Path
 import datetime as dt
+import typing as t
 from functools import partial
 from io import BytesIO
+from pathlib import Path
 
-import pytz
-from timezonefinderL import TimezoneFinder
 import dropbox
-import requests
-import redis
-from PIL import Image
 import imagehash
+import pytz
+import redis
+import requests
+from PIL import Image
 from resizeimage import resizeimage
+from timezonefinderL import TimezoneFinder
 
-from kamera import config
-from kamera import image_processing
-
-from typing import Callable, Optional, Dict
-
+from kamera import config, image_processing
+from kamera.logger import log
 
 seconds_in_fortnight = int(dt.timedelta(weeks=1).total_seconds())
 
@@ -30,15 +26,15 @@ class FoundBetterDuplicateException(Exception):
 
 
 class Task:
-    dbx_cache: Dict[str, dropbox.Dropbox] = {}
-    settings_cache: Dict[str, config.Settings] = {}
+    dbx_cache: t.Dict[str, dropbox.Dropbox] = {}
+    settings_cache: t.Dict[str, config.Settings] = {}
     redis_client: redis.Redis = None
 
     def __init__(
         self,
         account_id: str,
         entry: dropbox.files.FileMetadata,
-        metadata: Optional[dropbox.files.PhotoMetadata],
+        metadata: t.Optional[dropbox.files.PhotoMetadata],
         review_dir: Path,
         backup_dir: Path,
         error_dir: Path,
@@ -47,9 +43,9 @@ class Task:
         self.path: Path = Path(entry.path_display)
         self.name: str = self.path.name
         self.client_modified: dt.datetime = entry.client_modified
-        self.time_taken: Optional[dt.datetime] = None
-        self.dimensions: Optional[dropbox.files.Dimensions] = None
-        self.coordinates: Optional[dropbox.files.GpsCoordinates] = None
+        self.time_taken: t.Optional[dt.datetime] = None
+        self.dimensions: t.Optional[dropbox.files.Dimensions] = None
+        self.coordinates: t.Optional[dropbox.files.GpsCoordinates] = None
         if metadata is not None:
             self.time_taken = metadata.time_taken
             if metadata.dimensions is not None:
@@ -235,7 +231,7 @@ def delete_entry(entry: dropbox.files.FileMetadata, dbx: dropbox.Dropbox) -> Non
 
 
 def _execute_transfer(
-    dbx: dropbox.Dropbox, transfer_func: Callable, destination_folder: Path
+    dbx: dropbox.Dropbox, transfer_func: t.Callable, destination_folder: Path
 ) -> None:
     try:
         transfer_func()
@@ -287,9 +283,9 @@ def download_entry(dbx, path_str: str):
 
 
 def parse_date(
-    time_taken: Optional[dt.datetime],
+    time_taken: t.Optional[dt.datetime],
     client_modified: dt.datetime,
-    coordinates: Optional[dropbox.files.GpsCoordinates],
+    coordinates: t.Optional[dropbox.files.GpsCoordinates],
     default_tz: str,
 ) -> dt.datetime:
     naive_date = time_taken if time_taken is not None else client_modified

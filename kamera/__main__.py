@@ -1,23 +1,20 @@
 #! /usr/bin/env python3.6
 # coding: utf-8
-from kamera.logger import log
-
-import sys
 import argparse
+import sys
+import typing as t
 
-import rq
 import dropbox
+import rq
 from gunicorn.app.base import BaseApplication
 
+from kamera import config, server
+from kamera.logger import log
 from kamera.task import Task
-from kamera import config
-
-# from kamera.server import app, redis_client, queue, dbx_list_entries
-from kamera import server
 
 
 class StandaloneApplication(BaseApplication):
-    def __init__(self, app, options=None):
+    def __init__(self, app, options: t.Dict[str, t.Any] = None):
         self.options = options if options is not None else {}
         self.application = app
         super().__init__()

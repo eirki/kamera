@@ -1,29 +1,21 @@
 #! /usr/bin/env python3.6
 # coding: utf-8
-from pathlib import Path
-import sys
-import subprocess
 import datetime as dt
 import json
+import subprocess
+import sys
+import typing as t
+from io import BytesIO
+from pathlib import Path
 
 import dropbox
-from PIL import Image
-import pytz
 import piexif
-from io import BytesIO
 import pytest
+import pytz
+from numpy import array as np_array
+from PIL import Image
 
-from kamera import image_processing
-from kamera import config
-
-from typing import Tuple, Optional, Dict, List
-
-try:
-    import face_recognition
-    from numpy import array as np_array
-except ImportError:
-    face_recognition = None
-    np_array = None
+from kamera import config, image_processing
 
 test_images_path = Path.cwd() / "tests" / "test_images"
 
@@ -40,7 +32,7 @@ def _get_tag(data: bytes) -> str:
     return tags
 
 
-def _get_dimensions(data: bytes) -> Tuple[int, int]:
+def _get_dimensions(data: bytes) -> t.Tuple[int, int]:
     img = Image.open(BytesIO(data))
     width, height = img.size
     return width, height
@@ -68,13 +60,16 @@ def assert_image_attrs_identical(output_data: bytes, desired_data: bytes):
 def run_image_processing_main(
     filename: str,
     settings: config.Settings,
-    dimensions: Optional[dropbox.files.Dimensions] = None,
-    coordinates: Optional[dropbox.files.GpsCoordinates] = None,
-    date: Optional[dt.datetime] = None,
+    dimensions: t.Optional[dropbox.files.Dimensions] = None,
+    coordinates: t.Optional[dropbox.files.GpsCoordinates] = None,
+    date: t.Optional[dt.datetime] = None,
 ) -> bytes:
     filepath_input = test_images_path / "input" / filename
     with open(filepath_input, "rb") as file:
         input_data = file.read()
+
+    if date is None:
+        date = dt.datetime(2000, 1, 1)
 
     output_data = image_processing.main(
         data=input_data,
@@ -84,6 +79,8 @@ def run_image_processing_main(
         coordinates=coordinates,
         date=date,
     )
+    if output_data is None:
+        raise Exception("No output from image_processing")
     return output_data
 
 
@@ -175,13 +172,11 @@ def test_scenetype_workaround(settings) -> None:
     run_image_processing_main(filename, settings, dimensions=dimensions)
 
 
-if face_recognition is not None:
-
-    def test_recognition(settings) -> None:
-        filename = "recognition.jpg"
-        output = run_image_processing_main(filename, settings)
-        desired_output = fetch_desired_output(filename)
-        assert_image_attrs_identical(output, desired_output)
+def test_recognition(settings) -> None:
+    filename = "recognition.jpg"
+    output = run_image_processing_main(filename, settings)
+    desired_output = fetch_desired_output(filename)
+    assert_image_attrs_identical(output, desired_output)
 
 
 @pytest.fixture()
@@ -190,7 +185,7 @@ def settings():
         def __init__(self):
             self.default_tz: str = "US/Eastern"
             self.recognition_tolerance: float = 0.4
-            self.tag_swaps: Dict[str, str] = {
+            self.tag_swaps: t.Dict[str, str] = {
                 "Paris/10e arrondissement": "Holiday/France"
             }
             self.locations = [
@@ -206,15 +201,13 @@ def settings():
                     ],
                 )
             ]
-            if face_recognition is None:
-                return
             with open(test_images_path / "encodings" / "biden.json") as j:
                 biden = json.load(j)
             with open(test_images_path / "encodings" / "obama1.json") as j:
                 obama1 = json.load(j)
             with open(test_images_path / "encodings" / "obama2.json") as j:
                 obama2 = json.load(j)
-            self.recognition_data: Dict[str, List[np_array]] = {
+            self.recognition_data: t.Dict[str, t.List[np_array]] = {
                 "Biden": [np_array(biden)],
                 "Obama": [np_array(obama1), np_array(obama2)],
             }

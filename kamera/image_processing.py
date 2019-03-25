@@ -1,28 +1,25 @@
 #! /usr/bin/env python3.6
 # coding: utf-8
-from kamera.logger import log
-
-from io import BytesIO
-import subprocess
 import datetime as dt
+import subprocess
 import sys
+import typing as t
+from io import BytesIO
+from pathlib import Path
 
-from PIL import Image
+import dropbox
 import piexif
 from geopy.distance import great_circle
+from PIL import Image
 from resizeimage import resizeimage
 
-from pathlib import Path
-from typing import List, Optional
-import dropbox
-
-from kamera import config
-from kamera import recognition
+from kamera import config, recognition
+from kamera.logger import log
 
 
 def get_closest_area(
-    lat: float, lng: float, locations: List[config.Area]
-) -> Optional[config.Area]:
+    lat: float, lng: float, locations: t.List[config.Area]
+) -> t.Optional[config.Area]:
     """Return area if image taken within 50 km from center of area"""
     distances = [
         (great_circle((area.lat, area.lng), (lat, lng)).km, area) for area in locations
@@ -33,7 +30,7 @@ def get_closest_area(
 
 def get_closest_spot(
     lat: float, lng: float, area: config.Area
-) -> Optional[config.Spot]:
+) -> t.Optional[config.Spot]:
     """Return closest spot if image taken within 100 m"""
     if not area.spots:
         return None
@@ -46,7 +43,9 @@ def get_closest_spot(
     return closest_spot if distance < 100 else None
 
 
-def get_geo_tag(lat: float, lng: float, locations: List[config.Area]) -> Optional[str]:
+def get_geo_tag(
+    lat: float, lng: float, locations: t.List[config.Area]
+) -> t.Optional[str]:
     tagstring = None
     if lat and lng:
         area = get_closest_area(lat, lng, locations)
@@ -85,7 +84,7 @@ def add_date(date: dt.datetime, metadata: dict):
     metadata["Exif"][piexif.ExifIFD.DateTimeOriginal] = datestring
 
 
-def add_tag(data: bytes, tags: List[str]) -> bytes:
+def add_tag(data: bytes, tags: t.List[str]) -> bytes:
     # metadata["0th"][piexif.ImageIFD.XPKeywords] = tagstring.encode("utf-16")
     args = ["exiftool"]
     if sys.platform == "win32":
@@ -103,9 +102,9 @@ def main(
     filepath: Path,
     date: dt.datetime,
     settings: config.Settings,
-    coordinates: Optional[dropbox.files.GpsCoordinates],
-    dimensions: Optional[dropbox.files.Dimensions],
-) -> Optional[bytes]:
+    coordinates: t.Optional[dropbox.files.GpsCoordinates],
+    dimensions: t.Optional[dropbox.files.Dimensions],
+) -> t.Optional[bytes]:
     data_changed = False
     name = filepath.stem
     # Convert image from PNG to JPG, put data into BytesIO obj
@@ -157,7 +156,7 @@ def main(
     except ValueError:
         # This Element piexif.ExifIFD.SceneType causes error on dump
         # Workaround for unknown reason
-        del (exif_metadata['Exif'][piexif.ExifIFD.SceneType])
+        del exif_metadata["Exif"][piexif.ExifIFD.SceneType]
         metadata_bytes = piexif.dump(exif_metadata)
     new_file = BytesIO()
     piexif.insert(metadata_bytes, data, new_file)

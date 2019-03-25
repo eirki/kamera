@@ -1,14 +1,12 @@
 #! /usr/bin/env python3.6
 # coding: utf-8
-from kamera.logger import log
-
+from contextlib import contextmanager
 from pathlib import Path
 from unittest.mock import Mock, patch
-from contextlib import contextmanager
 
+import fakeredis
 import pytest
 import rq
-import fakeredis
 
 from kamera import server
 from tests.mock_dropbox import MockDropbox

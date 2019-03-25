@@ -1,21 +1,13 @@
 #! /usr/bin/env python3.6
 # coding: utf-8
-from kamera.logger import log
 
-from io import BytesIO
+import typing as t
 from collections import namedtuple
 from copy import deepcopy
+from io import BytesIO
 
+import face_recognition
 from numpy import array as np_array
-
-try:
-    import face_recognition
-except ImportError:
-    face_recognition = None
-    log.info("Unable to import face_recognition.")
-
-from typing import List, Dict
-
 
 from kamera import config
 
@@ -23,10 +15,10 @@ Match = namedtuple("Match", ["distance", "name"])
 
 
 def _match_face_with_known_people(
-    known_people: Dict[str, List[np_array]],
+    known_people: t.Dict[str, t.List[np_array]],
     unknown_encoding: np_array,
     tolerance: float,
-) -> List[Match]:
+) -> t.List[Match]:
     """
     Returns possible matches for a single unknown face encoding
 
@@ -35,7 +27,8 @@ def _match_face_with_known_people(
         unknown_encoding: single encoding from a picture
 
     Returns:
-        matches: list of matches, one match for each known person more similar than tolerance
+        matches: list of matches, one match for each known person more
+        similar than tolerance
     """
 
     match_list = []
@@ -48,9 +41,12 @@ def _match_face_with_known_people(
     return match_list
 
 
-def _get_best_match_for_each_face(all_facial_matches: List[List[Match]]) -> List[str]:
+def _get_best_match_for_each_face(
+    all_facial_matches: t.List[t.List[Match]]
+) -> t.List[str]:
     """
-    Returns list of best matches for multiple facial encodings, given a list of possible matches
+    Returns list of best matches for multiple facial encodings, given a list of possible
+    matches
 
     Args:
         all_facial_matches: list of list of matches
@@ -73,7 +69,7 @@ def _get_best_match_for_each_face(all_facial_matches: List[List[Match]]) -> List
     return best_matches
 
 
-def recognize_face(img_data: bytes, settings: config.Settings) -> List[str]:
+def recognize_face(img_data: bytes, settings: config.Settings) -> t.List[str]:
     loaded_img = face_recognition.load_image_file(BytesIO(img_data))
     unknown_encodings = face_recognition.face_encodings(loaded_img)
 

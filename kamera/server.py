@@ -1,26 +1,23 @@
 #! /usr/bin/env python3.6
 # coding: utf-8
-from kamera.logger import log
-
-from hashlib import sha256
+import datetime as dt
 import hmac
 import json
-import datetime as dt
+import typing as t
+from hashlib import sha256
 from pathlib import Path
 
-from flask import Flask, request, abort
+import dropbox
 import redis
+import redis_lock
 import rq
 import rq_dashboard
+from flask import Flask, abort, request
 from rq_dashboard.cli import add_basic_auth
-import redis_lock
-import dropbox
 
-from kamera.task import Task
 from kamera import config
-
-from typing import Optional, Generator, Tuple, Set
-
+from kamera.logger import log
+from kamera.task import Task
 
 app = Flask(__name__)
 
@@ -76,7 +73,7 @@ def get_n_queued(account_id: str) -> str:
     return str(n_jobs)
 
 
-def get_queued_and_running_jobs(account_id: str) -> Set[str]:
+def get_queued_and_running_jobs(account_id: str) -> t.Set[str]:
     queued_and_running_jobs = set(
         job_id
         for job_id in (queue.job_ids + running_jobs_registry.get_job_ids())
@@ -136,8 +133,10 @@ def webhook() -> str:
 
 def dbx_list_entries(
     dbx: dropbox.Dropbox, path: Path
-) -> Generator[
-    Tuple[dropbox.files.FileMetadata, Optional[dropbox.files.PhotoMetadata]], None, None
+) -> t.Generator[
+    t.Tuple[dropbox.files.FileMetadata, t.Optional[dropbox.files.PhotoMetadata]],
+    None,
+    None,
 ]:
     result = dbx.files_list_folder(path=path.as_posix(), include_media_info=True)
     if len(result.entries) == 0:
