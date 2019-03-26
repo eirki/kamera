@@ -2,21 +2,23 @@
 # coding: utf-8
 
 import typing as t
-from collections import namedtuple
 from copy import deepcopy
 from io import BytesIO
 
 import face_recognition
-from numpy import array as np_array
+import numpy
 
 from kamera import config
 
-Match = namedtuple("Match", ["distance", "name"])
+
+class Match(t.NamedTuple):
+    distance: numpy.float64
+    name: str
 
 
 def _match_face_with_known_people(
-    known_people: t.Dict[str, t.List[np_array]],
-    unknown_encoding: np_array,
+    known_people: t.Dict[str, t.List[numpy.array]],
+    unknown_encoding: numpy.array,
     tolerance: float,
 ) -> t.List[Match]:
     """
