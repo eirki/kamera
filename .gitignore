@@ -4,6 +4,10 @@ cursor
 .mypy_cache/
 .pytest_cache/
 
+.isort.cfg
+redis-data/
+setup/
+
 faces*
 testdata*
 *cursor
@@ -98,7 +102,7 @@ target/
 celerybeat-schedule
 
 # dotenv
-.env
+*.env
 
 # virtualenv
 venv/

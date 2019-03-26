@@ -22,11 +22,3 @@ repos:
     rev: "v0.670"
     hooks:
     - id: mypy
-  - repo: local
-    hooks:
-      - id: pytest
-        name: Check pytest unit tests pass
-        entry: pytest
-        pass_filenames: false
-        language: system
-        types: [python]
