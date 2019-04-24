@@ -137,9 +137,8 @@ def main(
         if geotag is not None:
             tags.append(geotag)
     # Check if any recognized faces
-    if recognition.face_recognition is not None:
-        peopletags = recognition.recognize_face(data, settings)
-        tags.extend(peopletags)
+    peopletags = recognition.recognize_face(data, settings)
+    tags.extend(peopletags)
     # Add tags to image data if present
     if tags:
         tags = [settings.tag_swaps.get(tag, tag) for tag in tags]
