@@ -1,5 +1,6 @@
 #! /usr/bin/env python3.6
 # coding: utf-8
+import copy
 import datetime as dt
 import subprocess
 import sys
@@ -79,6 +80,36 @@ def resize(data: bytes) -> bytes:
     return data
 
 
+def rotate(data: bytes, exif: dict) -> t.Tuple[bytes, dict]:
+    """Based on
+    piexif.readthedocs.io/en/latest/sample.html#rotate-image-by-exif-orientation"""
+    img = Image.open(BytesIO(data))
+    orientation = exif["0th"][piexif.ImageIFD.Orientation]
+    if orientation == 2:
+        img = img.transpose(Image.FLIP_LEFT_RIGHT)
+    elif orientation == 3:
+        img = img.rotate(180)
+    elif orientation == 4:
+        img = img.rotate(180).transpose(Image.FLIP_LEFT_RIGHT)
+    elif orientation == 5:
+        img = img.rotate(-90, expand=True).transpose(Image.FLIP_LEFT_RIGHT)
+    elif orientation == 6:
+        img = img.rotate(-90, expand=True)
+    elif orientation == 7:
+        img = img.rotate(90, expand=True).transpose(Image.FLIP_LEFT_RIGHT)
+    elif orientation == 8:
+        img = img.rotate(90, expand=True)
+    bytes_io = BytesIO()
+    img.save(bytes_io, "JPEG")
+    new_data = bytes_io.getvalue()
+    new_exif = copy.deepcopy(exif)
+    width, height = img.size
+    new_exif["0th"][piexif.ImageIFD.ImageWidth] = width
+    new_exif["0th"][piexif.ImageIFD.ImageLength] = height
+    del new_exif["0th"][piexif.ImageIFD.Orientation]
+    return new_data, new_exif
+
+
 def add_date(date: dt.datetime, metadata: dict):
     datestring = date.strftime("%Y:%m:%d %H:%M:%S")
     metadata["Exif"][piexif.ExifIFD.DateTimeOriginal] = datestring
@@ -118,6 +149,10 @@ def main(
     if dimensions and dimensions.width > 1440 and dimensions.height > 1440:
         log.info(f"{name}: Resizing")
         data = resize(data)
+        data_changed = True
+    # Rotate according to orientation tag
+    if piexif.ImageIFD.Orientation in exif_metadata["0th"]:
+        data, exif_metadata = rotate(data, exif=exif_metadata)
         data_changed = True
     # Add date to metadata object if missing
     try:

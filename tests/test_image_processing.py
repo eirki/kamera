@@ -179,6 +179,13 @@ def test_recognition(settings) -> None:
     assert_image_attrs_identical(output, desired_output)
 
 
+def test_orientation(settings) -> None:
+    filename = "orientation.jpg"
+    output = run_image_processing_main(filename, settings)
+    desired_output = fetch_desired_output(filename)
+    assert_image_attrs_identical(output, desired_output)
+
+
 @pytest.fixture()
 def settings():
     class MockSettings:
