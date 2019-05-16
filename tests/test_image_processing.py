@@ -139,6 +139,10 @@ def test_resize(settings) -> None:
     output = run_image_processing_main(filename, settings, dimensions=dimensions)
     desired_output = fetch_desired_output(filename)
     assert_image_attrs_identical(output, desired_output)
+    width, height = _get_dimensions(output)
+    exif_metadata = piexif.load(output)
+    assert exif_metadata["0th"][piexif.ImageIFD.ImageWidth] == width
+    assert exif_metadata["0th"][piexif.ImageIFD.ImageLength] == height
 
 
 def test_resize_tag_coordinates(settings) -> None:

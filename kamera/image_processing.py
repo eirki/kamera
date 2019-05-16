@@ -67,17 +67,21 @@ def convert_png_to_jpg(data: bytes) -> bytes:
     return data
 
 
-def resize(data: bytes) -> bytes:
+def resize(data: bytes, exif: dict) -> t.Tuple[bytes, dict]:
     img = Image.open(BytesIO(data))
     landscape = True if img.width > img.height else False
     if landscape:
         img = resizeimage.resize_height(img, size=1440)
     else:
         img = resizeimage.resize_width(img, size=1440)
-    new_data = BytesIO()
-    img.save(new_data, "JPEG")
-    data = new_data.getvalue()
-    return data
+    bytes_io = BytesIO()
+    img.save(bytes_io, "JPEG")
+    new_data = bytes_io.getvalue()
+    new_exif = copy.deepcopy(exif)
+    width, height = img.size
+    new_exif["0th"][piexif.ImageIFD.ImageWidth] = width
+    new_exif["0th"][piexif.ImageIFD.ImageLength] = height
+    return new_data, new_exif
 
 
 def rotate(data: bytes, exif: dict) -> t.Tuple[bytes, dict]:
@@ -148,10 +152,10 @@ def main(
     # Convert image to smaller resolution if needed
     if dimensions and dimensions.width > 1440 and dimensions.height > 1440:
         log.info(f"{name}: Resizing")
-        data = resize(data)
+        data, exif_metadata = resize(data, exif=exif_metadata)
         data_changed = True
     # Rotate according to orientation tag
-    if piexif.ImageIFD.Orientation in exif_metadata["0th"]:
+    if exif_metadata["0th"].get(piexif.ImageIFD.Orientation, 1) != 1:
         data, exif_metadata = rotate(data, exif=exif_metadata)
         data_changed = True
     # Add date to metadata object if missing
