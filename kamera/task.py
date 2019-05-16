@@ -131,21 +131,21 @@ class Task:
 
             _, response = download_entry(dbx, self.path.as_posix())
             in_data = response.raw.data
-            img_hash = get_hash(data=in_data)
-            handle_duplication(
-                account_id_and_img_hash=f"user:{self.account_id}, hash:{img_hash}",
-                file_path=review_path,
-                dbx=dbx,
-                redis_client=redis_client,
-                dimensions=self.dimensions,
-            )
-
             new_data = image_processing.main(
                 data=in_data,
                 filepath=self.path,
                 date=date,
                 settings=settings,
                 coordinates=self.coordinates,
+                dimensions=self.dimensions,
+            )
+
+            img_hash = get_hash(data=new_data if new_data is not None else in_data)
+            handle_duplication(
+                account_id_and_img_hash=f"user:{self.account_id}, hash:{img_hash}",
+                file_path=review_path,
+                dbx=dbx,
+                redis_client=redis_client,
                 dimensions=self.dimensions,
             )
 
