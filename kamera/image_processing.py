@@ -110,7 +110,7 @@ def rotate(data: bytes, exif: dict) -> t.Tuple[bytes, dict]:
     width, height = img.size
     new_exif["0th"][piexif.ImageIFD.ImageWidth] = width
     new_exif["0th"][piexif.ImageIFD.ImageLength] = height
-    del new_exif["0th"][piexif.ImageIFD.Orientation]
+    new_exif["0th"][piexif.ImageIFD.Orientation] = 1
     return new_data, new_exif
 
 
