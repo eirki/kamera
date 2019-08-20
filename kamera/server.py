@@ -55,8 +55,13 @@ def is_rate_limit_exceeded(account_id: str) -> bool:
 
 
 @app.route("/")
-def hello_world() -> str:
+def home_page() -> str:
     return f"{config.app_id}.home"
+
+
+@app.route("/version")
+def version_page() -> str:
+    return config.app_version
 
 
 @app.route("/webhook", methods=["GET"])

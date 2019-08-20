@@ -5,6 +5,8 @@ services:
     build: .
     env_file:
       - .env
+    environment:
+      - app_version
     command: "venv/bin/python -m kamera --mode server --port 5001"
     expose:
       - 5001
@@ -20,6 +22,8 @@ services:
     build: .
     env_file:
       - .env
+    environment:
+      - app_version
     command: "venv/bin/python -m kamera --mode worker"
     depends_on:
       - redis

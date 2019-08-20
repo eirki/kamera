@@ -21,6 +21,8 @@ load_dotenv(dotenv_path=env_path)
 
 app_id = os.environ["app_id"]
 
+app_version = os.environ.get("app_version", "test")
+
 flask_rate_limit = int(os.environ["flask_rate_limit"])
 
 redis_host = os.environ["REDIS_HOST"]
