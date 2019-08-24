@@ -18,12 +18,7 @@ class MockDropbox:
     def users_get_current_account(self):
         pass
 
-    def files_list_folder(
-        self,
-        path: str,
-        recursive: t.Optional[bool] = False,
-        include_media_info: t.Optional[bool] = False,
-    ):
+    def files_list_folder(self, path: str, recursive: t.Optional[bool] = False):
         path_obj = Path(path)
         files = path_obj.rglob("*") if recursive else path_obj.iterdir()
         mock_entries = [
@@ -71,24 +66,27 @@ class MockDropbox:
     def files_create_folder(self, path, autorename=False) -> None:
         os.makedirs(path)
 
-    def files_get_metadata(self, file_path, include_media_info=False):
+    def files_get_metadata(self, path, include_media_info=False):
         try:
-            img = Image.open(file_path)
+            img = Image.open(path)
         except FileNotFoundError:
             raise dropbox.exceptions.ApiError(
                 "request_id", "error", "user_message_text", "user_message_locale"
             )
-        metadata = dropbox.files.PhotoMetadata(
-            dimensions=dropbox.files.Dimensions(width=img.width, height=img.height),
-            location=None,
-            time_taken=None,
-        )
-        media_info = dropbox.files.MediaInfo.metadata(metadata)
+        if include_media_info:
+            metadata = dropbox.files.PhotoMetadata(
+                dimensions=dropbox.files.Dimensions(width=img.width, height=img.height),
+                location=None,
+                time_taken=None,
+            )
+            media_info = dropbox.files.MediaInfo.metadata(metadata)
+        else:
+            media_info = None
 
         mock_entry = dropbox.files.FileMetadata(
-            name=Path(file_path).name,
-            path_display=file_path,
-            path_lower=file_path.lower(),
+            name=Path(path).name,
+            path_display=path,
+            path_lower=path.lower(),
             media_info=media_info,
         )
         return mock_entry

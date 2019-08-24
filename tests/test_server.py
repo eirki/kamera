@@ -7,6 +7,7 @@ from unittest.mock import Mock, patch
 import fakeredis
 import pytest
 import rq
+from PIL import Image
 
 from kamera import server
 from tests.mock_dropbox import MockDropbox
@@ -18,8 +19,9 @@ def test_webhook(client, tmpdir, monkeypatch) -> None:
     account_id = "test_webhook"
     temp_path = Path(tmpdir)
     file_name = "in_file.jpg"
-    with open(temp_path / file_name, "w") as file:
-        file.write("")
+    img = Image.new("RGB", (1, 1))
+    img.save(temp_path / file_name, "PNG")
+
     with patch_redis() as mock_redis:
         mock_redis.hset(f"user:{account_id}", "token", "test_token")
         monkeypatch.setattr("kamera.server.config.uploads_path", temp_path)

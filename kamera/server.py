@@ -143,10 +143,10 @@ def dbx_list_entries(
     None,
     None,
 ]:
-    result = dbx.files_list_folder(path=path.as_posix(), include_media_info=True)
+    result = dbx.files_list_folder(path=path.as_posix())
     if len(result.entries) == 0:
         # Retry - sometimes webhook fires to quickly?
-        result = dbx.files_list_folder(path=path.as_posix(), include_media_info=True)
+        result = dbx.files_list_folder(path=path.as_posix())
     while True:
         log.info(f"Entries in upload folder: {len(result.entries)}")
         log.debug(result.entries)
@@ -158,7 +158,10 @@ def dbx_list_entries(
             ):
                 continue
 
-            metadata = entry.media_info.get_metadata() if entry.media_info else None
+            metadata_obj = dbx.files_get_metadata(
+                path=entry.path_display, include_media_info=True
+            )
+            metadata = metadata_obj.media_info.get_metadata() if metadata_obj else None
             yield entry, metadata
 
         # Repeat only if there's more to do
