@@ -34,7 +34,6 @@ class Task:
         self,
         account_id: str,
         entry: dropbox.files.FileMetadata,
-        metadata: t.Optional[dropbox.files.PhotoMetadata],
         review_dir: Path,
         backup_dir: Path,
         error_dir: Path,
@@ -43,16 +42,6 @@ class Task:
         self.path: Path = Path(entry.path_display)
         self.name: str = self.path.name
         self.client_modified: dt.datetime = entry.client_modified
-        self.time_taken: t.Optional[dt.datetime] = None
-        self.dimensions: t.Optional[dropbox.files.Dimensions] = None
-        self.coordinates: t.Optional[dropbox.files.GpsCoordinates] = None
-        if metadata is not None:
-            self.time_taken = metadata.time_taken
-            if metadata.dimensions is not None:
-                self.dimensions = metadata.dimensions
-            if metadata.location is not None:
-                self.coordinates = metadata.location
-
         self.review_dir: Path = review_dir
         self.backup_dir: Path = backup_dir
         self.error_dir: Path = error_dir
@@ -109,12 +98,11 @@ class Task:
     ) -> None:
         start_time = dt.datetime.now()
         log.info(f"{self.name}: Processing")
+
         try:
+            time_taken, dimensions, coordinates = parse_metdata(self.path, dbx)
             date = parse_date(
-                self.time_taken,
-                self.client_modified,
-                self.coordinates,
-                settings.default_tz,
+                time_taken, self.client_modified, coordinates, settings.default_tz
             )
             out_name = get_out_name(self.path.stem, self.path.suffix, date)
             subfolder = Path(str(date.year), settings.folder_names[date.month])
@@ -136,8 +124,8 @@ class Task:
                 filepath=self.path,
                 date=date,
                 settings=settings,
-                coordinates=self.coordinates,
-                dimensions=self.dimensions,
+                coordinates=coordinates,
+                dimensions=dimensions,
             )
 
             img_hash = get_hash(data=new_data if new_data is not None else in_data)
@@ -146,7 +134,7 @@ class Task:
                 file_path=review_path,
                 dbx=dbx,
                 redis_client=redis_client,
-                dimensions=self.dimensions,
+                dimensions=dimensions,
             )
 
             if new_data is None:
@@ -280,6 +268,27 @@ def download_entry(dbx, path_str: str):
     except requests.exceptions.SSLError:
         log.info("Encountered SSL error during transfer. Trying again")
         return dbx.files_download(path_str)
+
+
+def parse_metdata(
+    path: Path, dbx: dropbox.Dropbox
+) -> t.Tuple[
+    t.Optional[dt.datetime],
+    t.Optional[dropbox.files.Dimensions],
+    t.Optional[dropbox.files.GpsCoordinates],
+]:
+    metadata_obj = dbx.files_get_metadata(path=path.as_posix(), include_media_info=True)
+    metadata = metadata_obj.media_info.get_metadata() if metadata_obj else None
+    time_taken: t.Optional[dt.datetime] = None
+    dimensions: t.Optional[dropbox.files.Dimensions] = None
+    coordinates: t.Optional[dropbox.files.GpsCoordinates] = None
+    if metadata is not None:
+        time_taken = metadata.time_taken
+        if metadata.dimensions is not None:
+            dimensions = metadata.dimensions
+        if metadata.location is not None:
+            coordinates = metadata.location
+    return time_taken, dimensions, coordinates
 
 
 def parse_date(

@@ -8,12 +8,21 @@ from pathlib import Path
 from types import SimpleNamespace
 
 import dropbox
-from PIL import Image
 
 
 class MockDropbox:
-    def __init__(*args, **kwargs):
-        pass
+    metadatas: t.Dict[str, t.Optional[dropbox.files.PhotoMetadata]] = {}
+
+    def __init__(
+        self,
+        *args,
+        in_file: Path = None,
+        metadata: t.Optional[dropbox.files.PhotoMetadata] = None,
+        **kwargs
+    ):
+        if in_file is not None:
+            self.metadatas[in_file.as_posix()] = metadata
+            self.metadata_cache = metadata
 
     def users_get_current_account(self):
         pass
@@ -48,6 +57,7 @@ class MockDropbox:
             raise dropbox.exceptions.BadInputError(request_id=1, message="message")
         with open(path, "wb") as file:
             file.write(f)
+        self.metadatas[path] = self.metadata_cache
 
     def files_move(
         self, from_path: str, to_path: str, autorename: t.Optional[bool] = False
@@ -55,6 +65,7 @@ class MockDropbox:
         if not Path(from_path).parent.exists() or not Path(to_path).parent.exists():
             raise dropbox.exceptions.BadInputError(request_id=1, message="message")
         shutil.move(from_path, Path(to_path).parent)
+        self.metadatas[to_path] = self.metadatas[from_path]
 
     def files_copy(
         self, from_path: str, to_path: str, autorename: t.Optional[bool] = False
@@ -62,23 +73,23 @@ class MockDropbox:
         if not Path(from_path).parent.exists() or not Path(to_path).parent.exists():
             raise dropbox.exceptions.BadInputError(request_id=1, message="message")
         shutil.copy(from_path, to_path)
+        self.metadatas[to_path] = self.metadatas[from_path]
 
     def files_create_folder(self, path, autorename=False) -> None:
         os.makedirs(path)
 
-    def files_get_metadata(self, path, include_media_info=False):
+    def files_get_metadata(self, path: str, include_media_info=False):
         try:
-            img = Image.open(path)
-        except FileNotFoundError:
+            metadata = self.metadatas[path]
+        except KeyError:
             raise dropbox.exceptions.ApiError(
                 "request_id", "error", "user_message_text", "user_message_locale"
             )
         if include_media_info:
-            metadata = dropbox.files.PhotoMetadata(
-                dimensions=dropbox.files.Dimensions(width=img.width, height=img.height),
-                location=None,
-                time_taken=None,
-            )
+            if metadata is None:
+                metadata = dropbox.files.PhotoMetadata(
+                    dimensions=None, location=None, time_taken=None
+                )
             media_info = dropbox.files.MediaInfo.metadata(metadata)
         else:
             media_info = None

@@ -65,14 +65,13 @@ def run_task_process_entry(
     task = Task(
         account_id=account_id,
         entry=dbx_entry,
-        metadata=metadata,
         review_dir=root_dir / "Review",
         backup_dir=root_dir / "Backup",
         error_dir=root_dir / "Error",
     )
     redis_state = redis_servers[test_name]
     fake_redis_client = fakeredis.FakeStrictRedis(server=redis_state)
-    fake_dbx = MockDropbox()
+    fake_dbx = MockDropbox(in_file=in_file, metadata=metadata)
     fake_settings = MockSettings(account_id)
     task.process_entry(
         redis_client=fake_redis_client, dbx=fake_dbx, settings=fake_settings
@@ -336,7 +335,6 @@ def test_settings_caching(tmpdir, settings, monkeypatch) -> None:
     task1 = Task(
         account_id=account_id,
         entry=dbx_entry1,
-        metadata=None,
         review_dir=root_dir / "Review",
         backup_dir=root_dir / "Backup",
         error_dir=root_dir / "Error",
@@ -358,7 +356,6 @@ def test_settings_caching(tmpdir, settings, monkeypatch) -> None:
     task2 = Task(
         account_id=account_id,
         entry=dbx_entry2,
-        metadata=None,
         review_dir=root_dir / "Review",
         backup_dir=root_dir / "Backup",
         error_dir=root_dir / "Error",

@@ -92,7 +92,7 @@ def enqueue_new_entries(account_id: str):
     log.debug(str(queued_and_running_jobs))
     token = config.get_dbx_token(redis_client, account_id)
     dbx = dropbox.Dropbox(token)
-    for entry, metadata in dbx_list_entries(dbx, config.uploads_path):
+    for entry in dbx_list_entries(dbx, config.uploads_path):
         job_id = f"{account_id}:{entry.name}"
         if job_id in queued_and_running_jobs:
             continue
@@ -100,7 +100,6 @@ def enqueue_new_entries(account_id: str):
         task = Task(
             account_id,
             entry,
-            metadata,
             config.review_path,
             config.backup_path,
             config.errors_path,
@@ -138,18 +137,14 @@ def webhook() -> str:
 
 def dbx_list_entries(
     dbx: dropbox.Dropbox, path: Path
-) -> t.Generator[
-    t.Tuple[dropbox.files.FileMetadata, t.Optional[dropbox.files.PhotoMetadata]],
-    None,
-    None,
-]:
+) -> t.Generator[dropbox.files.FileMetadata, None, None]:
     result = dbx.files_list_folder(path=path.as_posix())
     if len(result.entries) == 0:
         # Retry - sometimes webhook fires to quickly?
         result = dbx.files_list_folder(path=path.as_posix())
     while True:
         log.info(f"Entries in upload folder: {len(result.entries)}")
-        log.debug(result.entries)
+        log.debug([entry.path_display for entry in result.entries])
         for entry in result.entries:
             # Ignore deleted files, folders
             if not (
@@ -157,13 +152,7 @@ def dbx_list_entries(
                 and isinstance(entry, dropbox.files.FileMetadata)
             ):
                 continue
-
-            metadata_obj = dbx.files_get_metadata(
-                path=entry.path_display, include_media_info=True
-            )
-            metadata = metadata_obj.media_info.get_metadata() if metadata_obj else None
-            yield entry, metadata
-
+            yield entry
         # Repeat only if there's more to do
         if result.has_more:
             result = dbx.files_list_folder_continue(result.cursor)
