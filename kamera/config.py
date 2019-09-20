@@ -1,9 +1,10 @@
-#! /usr/bin/env python3.6
+#! /usr/bin/env python3
 # coding: utf-8
 import json
 import os
 import typing as t
 from collections import defaultdict
+from dataclasses import dataclass
 from io import BytesIO
 from pathlib import Path
 
@@ -51,10 +52,11 @@ class Settings:
         settings_data = _load_settings(dbx)
         self.default_tz: str = settings_data["default_tz"]
         self.recognition_tolerance: float = settings_data["recognition_tolerance"]
+        self.folder_names: t.Dict[int, str]
         try:
-            self.folder_names: t.Dict[int, str] = settings_data["folder_names"]
+            self.folder_names = settings_data["folder_names"]
         except KeyError:
-            self.folder_names: t.Dict[int, str] = {
+            self.folder_names = {
                 1: "01",
                 2: "02",
                 3: "03",
@@ -68,8 +70,9 @@ class Settings:
                 11: "11",
                 12: "12",
             }
+        self.tag_swaps: t.Dict[str, str]
         try:
-            self.tag_swaps: t.Dict[str, str] = settings_data.pop("tag_swaps")
+            self.tag_swaps = settings_data.pop("tag_swaps")
         except KeyError:
             self.tag_swaps = {}
         try:
@@ -88,13 +91,15 @@ def _load_settings(dbx: Dropbox) -> dict:
     return settings
 
 
-class Spot(t.NamedTuple):
+@dataclass(frozen=True)
+class Spot:
     name: str
     lat: float
     lng: float
 
 
-class Area(t.NamedTuple):
+@dataclass(frozen=True)
+class Area:
     name: str
     lat: float
     lng: float

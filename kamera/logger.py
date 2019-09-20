@@ -1,6 +1,5 @@
-#! /usr/bin/env python3.6
+#! /usr/bin/env python3
 # coding: utf-8
-
 import logging
 import os
 from logging import StreamHandler

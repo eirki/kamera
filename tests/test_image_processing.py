@@ -1,4 +1,4 @@
-#! /usr/bin/env python3.6
+#! /usr/bin/env python3
 # coding: utf-8
 import datetime as dt
 import json
@@ -176,7 +176,7 @@ def test_scenetype_workaround(settings) -> None:
     run_image_processing_main(filename, settings, dimensions=dimensions)
 
 
-def test_recognition(settings) -> None:
+def test_recognition_pic(settings) -> None:
     filename = "recognition.jpg"
     output = run_image_processing_main(filename, settings)
     desired_output = fetch_desired_output(filename)
