@@ -47,11 +47,16 @@ video_extensions = {".mp4", ".mov", ".gif"}
 media_extensions = tuple(image_extensions | video_extensions)
 
 
+# type alias
+facial_encoding = t.Sequence[np.float64]  # actually np.ndarray
+
+
 class Settings:
     def __init__(self, dbx: Dropbox) -> None:
         settings_data = _load_settings(dbx)
         self.default_tz: str = settings_data["default_tz"]
         self.recognition_tolerance: float = settings_data["recognition_tolerance"]
+
         self.folder_names: t.Dict[int, str]
         try:
             self.folder_names = settings_data["folder_names"]
@@ -75,13 +80,16 @@ class Settings:
             self.tag_swaps = settings_data.pop("tag_swaps")
         except KeyError:
             self.tag_swaps = {}
+
+        self.locations: t.List[Area]
         try:
             location_data = _load_location_data(dbx)
-            self.locations: t.List[Area] = location_data
+            self.locations = location_data
         except dropbox.exceptions.ApiError:
-            self.locations: t.List[Area] = []
+            self.locations = []
         recognition_data = _load_recognition_data(dbx)
-        self.recognition_data: t.Dict[str, t.List[np.array]] = recognition_data
+
+        self.recognition_data: t.Dict[str, t.List[facial_encoding]] = recognition_data
 
 
 def _load_settings(dbx: Dropbox) -> dict:
@@ -122,11 +130,11 @@ def _load_location_data(dbx: Dropbox) -> t.List[Area]:
     return areas
 
 
-def _load_recognition_data(dbx: Dropbox) -> t.Dict[str, t.List[np.array]]:
+def _load_recognition_data(dbx: Dropbox) -> t.Dict[str, t.List[facial_encoding]]:
     recognition_path = config_path / "people"
     result = dbx.files_list_folder(path=recognition_path.as_posix(), recursive=True)
 
-    people: t.Dict[str, t.List[np.array]] = defaultdict(list)
+    people: t.Dict[str, t.List[facial_encoding]] = defaultdict(list)
 
     paths = {Path(entry.path_display) for entry in result.entries}
     json_files = {path for path in paths if path.suffix == ".json"}
@@ -149,7 +157,7 @@ def _load_recognition_data(dbx: Dropbox) -> t.Dict[str, t.List[np.array]]:
 def _load_encoding_json(file: Path, dbx: Dropbox, people: t.Dict[str, t.List]) -> None:
     name = file.parents[0].name
     _, response = dbx.files_download(file.as_posix())
-    encoding = np.array(json.loads(response.raw.data))
+    encoding: facial_encoding = np.array(json.loads(response.raw.data))
     people[name].append(encoding)
 
 
@@ -159,12 +167,14 @@ def _load_encoding_img(img: Path, dbx: Dropbox, people: t.Dict[str, t.List]) -> 
     encoding = _get_facial_encoding(response, img)
     if encoding is None:
         return
-    json_encoded = json.dumps(encoding.tolist())
+    json_encoded = json.dumps(encoding.tolist())  # type: ignore
     dbx.files_upload(f=json_encoded.encode(), path=img.with_suffix(".json").as_posix())
     people[name].append(encoding)
 
 
-def _get_facial_encoding(response: Response, img_path: Path) -> np.array:
+def _get_facial_encoding(
+    response: Response, img_path: Path
+) -> t.Optional[facial_encoding]:
     loaded_img = face_recognition.load_image_file(BytesIO(response.raw.data))
     encodings = face_recognition.face_encodings(loaded_img)
     if len(encodings) == 0:
