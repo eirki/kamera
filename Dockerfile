@@ -46,9 +46,9 @@ RUN python -m venv venv
 
 # preinstall dlib so it's cached before requirements.txt install
 RUN mkdir -p dlib && \
-    git clone -b 'v19.9' --single-branch https://github.com/davisking/dlib.git dlib/ && \
+    git clone -b 'v19.18' --single-branch https://github.com/davisking/dlib.git dlib/ && \
     cd  dlib/ && \
-    ../venv/bin/python setup.py install --yes USE_AVX_INSTRUCTIONS && \
+    ../venv/bin/python setup.py install && \
     cd .. && \
     rm -r dlib
 
