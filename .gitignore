@@ -3,6 +3,7 @@ exiftool/
 cursor
 .mypy_cache/
 .pytest_cache/
+.vscode/
 
 .isort.cfg
 redis-data/
