@@ -1,3 +1,5 @@
 pytest==4.3.1
 fakeredis==1.0.2
 pre-commit==1.14.4
+mypy
+flake8
