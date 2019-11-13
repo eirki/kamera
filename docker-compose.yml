@@ -3,6 +3,7 @@ services:
   kamera_server:
     container_name: kamera_server
     build: .
+    restart: always
     env_file:
       - .env
     environment:
@@ -17,9 +18,11 @@ services:
     networks:
       - kamera_network
       - nginx_network
+
   kamera_worker:
     container_name: kamera_worker
     build: .
+    restart: always
     env_file:
       - .env
     environment:
@@ -29,14 +32,15 @@ services:
       - redis
     networks:
       - kamera_network
+
   redis:
     container_name: redis
     image: redis
+    restart: always
     ports:
       - "6379:6379"
     volumes:
       - ./redis-data:/data
-    restart: always
     env_file:
       - .env
     entrypoint: redis-server --requirepass ${REDIS_PASSWORD}
