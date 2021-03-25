@@ -15,6 +15,6 @@ redis==3.0.1
 python-redis-lock==3.3.1
 rq==0.13.0
 rq-dashboard==0.4.0
-PyYAML==5.1
+PyYAML==5.4
 python-dotenv==0.10.1
 ImageHash==4.0
