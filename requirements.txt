@@ -3,7 +3,7 @@ dropbox==9.3.0
 numpy==1.16.2
 pytz==2018.9
 timezonefinderL==2.0.1
-Pillow==6.2.0
+Pillow==8.3.2
 piexif==1.1.2
 geopy==1.18.1
 python-resize-image==1.1.18
